@@ -1,6 +1,6 @@
 window.renderDetail=function(){
   title.textContent='专项详情';
-  app.innerHTML=`<section class="detail-flow"><div class="detail-main"><h1>眼科专项采集</h1><span class="pill">进行中</span><div class="detail-metrics"><div><strong>5</strong><span>已对话</span></div><div><strong>3</strong><span>已提交</span></div></div><section class="card"><h3>采集目标</h3><p>围绕眼科近视防控场景开展自然交流，了解患者情况、诊疗习惯、产品认知、竞品情况、临床痛点及未满足需求。</p><div class="person"><div class="avatar">张</div><div><b>张三</b><small>医药代表 · 采集人</small></div></div></section><section class="card info"><p>建议对话时长 <b>10 分钟</b></p><p>发起方 <b>核盛健康管理</b></p><p>发起时间 <b>09.17 11:25</b></p></section></div><button class="primary start-voice" onclick="go('voice')">开始对话</button></section>`;
+  app.innerHTML=`<section class="detail-flow"><div class="detail-main"><h1>眼科专项采集</h1><span class="pill">进行中</span><div class="detail-metrics"><div><strong>5</strong><span>已对话</span></div><div><strong>3</strong><span>已提交</span></div></div><section class="card"><h3>采集要求</h3><p>围绕眼科近视防控场景开展自然交流，了解患者情况、诊疗习惯、产品认知、竞品情况、临床痛点及未满足需求。</p><div class="person"><div class="avatar">张</div><div><b>张三</b><small>医药代表 · 采集人</small></div></div></section><button type="button" class="conversation-record-card" onclick="go('records')"><span>对话记录</span><span><strong>${records.length}</strong> 条 <b>›</b></span></button><section class="card info"><p>建议对话时长 <b>10 分钟</b></p><p>发起方 <b>核盛健康管理</b></p><p>发起时间 <b>09.17 11:25</b></p></section></div><button class="primary start-voice" onclick="go('voice')">开始对话</button></section>`;
 };
 window.renderVoice=function(){
   title.textContent='张三';

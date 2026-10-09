@@ -66,3 +66,19 @@
 .api-actions {
   white-space: nowrap;
 }
+
+.title-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.page-heading .title-line h1 {
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+.title-line .ant-tag {
+  flex: none;
+}

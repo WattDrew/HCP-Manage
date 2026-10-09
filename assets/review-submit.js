@@ -9,7 +9,7 @@ window.confirmSubmit=function(){
   modal.classList.add('open');
   cancel.onclick=()=>modal.classList.remove('open');
   confirm.onclick=()=>{
-    records[selected].stage='submitted';
+    records[selected].stage='pending_initial_review';
     modal.classList.add('success');
     modal.querySelector('#modal-title').textContent='提交成功';
     modal.querySelector('.sheet p').textContent='本次对话已成功提交。';

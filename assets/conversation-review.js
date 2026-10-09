@@ -21,4 +21,4 @@ window.render=function(){
   title.textContent='查看对话';
   renderReview();
 };
-back.onclick=()=>go(page==='review'?'voice':page==='cert'?'login':page==='notices'||page==='tasks'?'home':page==='detail'?'tasks':page==='voice'?'detail':page==='chat'?'voice':page==='records'?'tasks':page==='record'?'records':'home');
+back.onclick=()=>go(page==='consent'?'detail':page==='review'?'voice':page==='cert'?'login':page==='notices'||page==='tasks'?'home':page==='detail'?'tasks':page==='voice'?'detail':page==='chat'?'voice':page==='records'?'detail':page==='record'?'records':'home');

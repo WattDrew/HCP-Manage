@@ -1,9 +1,15 @@
 .detail-flow{display:flex;flex-direction:column;height:100%;min-height:100%}
 .detail-main{flex:1}
 .detail-main>h1{margin:4px 0 8px;font-size:24px}
+.detail-main>.pill{display:flex;width:max-content;margin-bottom:18px}
 .detail-metrics{display:flex;gap:45px;margin:26px 0;text-align:center}
 .detail-metrics strong{display:block;color:#388ff0;font-size:27px}
 .detail-metrics span{display:block;margin-top:5px;color:#98a3b2;font-size:11px}
+.conversation-record-card{display:flex;align-items:center;justify-content:space-between;width:100%;min-height:54px;margin:-4px 0 16px;padding:0 16px;border:1px solid var(--line);border-radius:12px;background:#fff;color:#344054;font-size:13px;font-weight:650;text-align:left}
+.conversation-record-card>span:last-child{display:flex;align-items:center;gap:4px;color:#8b96a8;font-size:11px;font-weight:400}
+.conversation-record-card strong{color:#388ff0;font-size:14px}
+.conversation-record-card b{margin-left:3px;color:#aab4c2;font-size:19px;font-weight:400;line-height:1}
+.conversation-record-card:active{background:#f7faff}
 .start-voice{flex:none;margin-top:16px}
 .screen[data-page="voice"]{padding:0;overflow:hidden;background:#31363c}
 .phone:has(.screen[data-page="voice"]) .status{background:#31363c;color:#fff}

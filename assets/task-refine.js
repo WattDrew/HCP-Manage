@@ -7,12 +7,14 @@ window.renderTasks=function(){
 const baseRefinedDetail=window.renderDetail;
 window.renderDetail=function(){
   baseRefinedDetail();
-  const metrics=app.querySelector('.detail-metrics'),pill=app.querySelector('.detail-flow .pill');
-  const completed=records.some(r=>r.stage==='final_approved');
+  const metrics=app.querySelector('.detail-metrics'),pill=app.querySelector('.detail-flow .pill'),heading=app.querySelector('.detail-flow h1');
+  const selectedTask=collectorTasks[selectedCollectorTask]||collectorTasks[0];
+  const meta=collectorTaskStatusMeta[selectedTask.state]||collectorTaskStatusMeta.invalid;
   if(metrics) metrics.remove();
+  if(heading) heading.textContent=selectedTask.name;
   if(pill){
-    if(completed){pill.textContent='已完成';pill.classList.add('task-completed')}
-    else pill.remove();
+    pill.textContent=meta.label;
+    pill.className=`pill task-status ${meta.className}`;
   }
 };
 const baseRefinedVoice=window.renderVoice;

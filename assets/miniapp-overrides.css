@@ -284,3 +284,11 @@
 .record-status .conversation-status{
   flex:none;
 }
+.task-status-active{background:#eaf3ff;color:#2878d0}
+.task-status-stopped{background:#eef2f7;color:#667085}
+.task-status-done{background:#eaf8f1;color:#27845b}
+.task-status-invalid{background:#fff1f0;color:#cf3f3f}
+.task-status-removed{background:#eef2f7;color:#667085}
+.task+.task{margin-top:12px}
+.task-heading>div:nth-child(2){flex:1;min-width:0}
+.task-heading .task-status{flex:none}

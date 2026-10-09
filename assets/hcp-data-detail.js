@@ -48,13 +48,13 @@
     const name = meta.isDemand ? meta.name.slice(0, 1) + '*医生' : meta.name;
     const identityRows = [
       ['职业类型', '医生'], ['姓名', name], ['第一执业医院', '上海市第一人民医院'], ['等级', '三级甲等'],
-      ['地区', '上海市 · 虹口区'], ['科室', '眼科'], ['职称', '主任医师'], ['认证状态', '已通过']
+      ['地区', '上海市 · 虹口区'], ['科室', '眼科'], ['职称', '主任医师']
     ];
     const rows = items => items.map(([label, value]) => `<div><dt>${label}</dt><dd>${value}</dd></div>`).join('');
     const credentialControl = meta.isDemand
       ? `<button type="button" class="credential-photo masked" data-masked="true" aria-label="执业凭证信息已脱敏"><img src="assets/demo-medical-license.svg" alt=""><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18M10.6 10.7a2 2 0 0 0 2.7 2.7M9.9 4.2A10.7 10.7 0 0 1 12 4c5.5 0 9 5.2 9 5.2a14.2 14.2 0 0 1-2.1 2.5M6.6 6.6A15.5 15.5 0 0 0 3 9.2S6.5 14.5 12 14.5c1 0 2-.2 2.8-.5"/></svg></button>`
       : `<button type="button" class="credential-photo" data-masked="false" aria-label="查看执业凭证详情"><img src="assets/demo-medical-license.svg" alt="虚构医师执业凭证演示图片"></button>`;
-    return `<section class="detail-module subject-module"><h4 class="identity-section-title">职业认证信息</h4><dl class="identity-grid">${rows(identityRows)}<div class="credential-row"><dt>执业凭证</dt><dd>${credentialControl}</dd></div></dl></section>`;
+    return `<section class="detail-module subject-module"><h4 class="identity-section-title">职业认证信息</h4><dl class="identity-grid">${rows(identityRows)}<div class="credential-row"><dt>执业凭证</dt><dd>${credentialControl}</dd></div>${rows([['手机号', '13******380'], ['认证状态', '已通过']])}</dl></section>`;
   }
 
   function showCredentialToast() {

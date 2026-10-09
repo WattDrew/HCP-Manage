@@ -26,7 +26,7 @@
       return;
     }
     title.textContent = '专项采集';
-    app.innerHTML = '<div class="task-filter-row"><div class="seg"><button class="active">全部 0</button><button>进行中 0</button><button>已结束 0</button></div><button class="history-link" onclick="go(\'records\')">历史对话 ›</button></div><div class="empty">暂无专项采集<br>可参与的任务将展示在这里</div>';
+    app.innerHTML = '<div class="task-filter-row"><div class="seg"><button class="active">全部 0</button><button>进行中 0</button><button>已结束 0</button></div></div><div class="empty">暂无专项采集<br>可参与的任务将展示在这里</div>';
   };
 
   const baseRenderNotices = window.renderNotices;

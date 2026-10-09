@@ -125,36 +125,58 @@ const initialProjects = [{
 }];
 const initialTasks = [{
   key: 'T-001',
+  apiKey: 'API-001',
   project: 'P-001',
-  name: '眼科数据采集接口',
+  name: '华东区域采集 API',
   collector: '张三',
   state: 'active',
   target: 1000,
   current: 234
 }, {
   key: 'T-002',
-  project: 'P-002',
-  name: '眼科数据采集接口',
-  collector: '张三',
+  apiKey: 'API-003',
+  project: 'P-001',
+  name: '华北区域采集 API',
+  collector: '李四',
   state: 'done',
   target: 1000,
   current: 234
 }, {
   key: 'T-003',
+  apiKey: 'API-004',
   project: 'P-001',
-  name: '眼科随访采集接口',
-  collector: '李四',
+  name: '西南区域采集 API',
+  collector: '王五',
   state: 'stopped',
   target: 600,
   current: 176
 }, {
   key: 'T-004',
-  project: 'P-003',
-  name: '儿科数据采集接口',
+  apiKey: 'API-005',
+  project: 'P-001',
+  name: '华中区域采集 API',
   collector: '王五',
   state: 'invalid',
   target: 800,
   current: 0
+}, {
+  key: 'T-005',
+  apiKey: 'API-006',
+  project: 'P-002',
+  name: '眼科项目收官 API',
+  collector: '张三',
+  state: 'done',
+  target: 1000,
+  current: 1023
+}, {
+  key: 'T-006',
+  apiKey: 'API-007',
+  project: 'P-004',
+  name: '儿科区域采集 API',
+  collector: '张三',
+  state: 'stopped',
+  target: 800,
+  current: 320
 }];
 const initialApis = [{
   key: 'API-001',
@@ -204,7 +226,50 @@ const initialApis = [{
   status: 'stopped',
   company: '成都新源数据科技有限公司',
   createdAt: '2026.09.15 16:20'
+}, {
+  key: 'API-005',
+  project: 'P-001',
+  name: '华中区域采集 API',
+  value: 'yb_live_huazhong_7K2F5D9S',
+  peak: 800,
+  collector: '王五',
+  collectorRole: '数据专员',
+  note: '该接口已由需求端删除',
+  status: 'deleted',
+  company: '武汉智采数据科技有限公司',
+  createdAt: '2026.09.14 11:08'
+}, {
+  key: 'API-006',
+  project: 'P-002',
+  name: '眼科项目收官 API',
+  value: 'yb_live_yanke_6Q4N8V2C',
+  peak: 1000,
+  collector: '张三',
+  collectorRole: '医药代表',
+  note: '项目目标已完成，接口已结束采集',
+  status: 'completed',
+  company: '核盛网络科技有限公司',
+  createdAt: '2026.09.16 15:30'
+}, {
+  key: 'API-007',
+  project: 'P-004',
+  name: '儿科区域采集 API',
+  value: 'yb_live_erke_9H3W6J5R',
+  peak: 800,
+  collector: '张三',
+  collectorRole: '医药代表',
+  note: '所属项目已作废，接口已停止',
+  status: 'stopped',
+  company: '华中医数科技有限公司',
+  createdAt: '2026.09.19 09:18'
 }];
+
+const collectorStateByApiStatus = {
+  collecting: 'active',
+  stopped: 'stopped',
+  completed: 'done',
+  deleted: 'invalid'
+};
 const initialProjectTasks = [{
   key: 'PT-001',
   project: 'P-001',
@@ -267,7 +332,7 @@ const initialRecords = [{
   time: '2026.09.17 11:25'
 }, {
   key: 'D-006',
-  apiKey: 'API-003',
+  apiKey: 'API-001',
   name: '周医生',
   turns: 19,
   stage: 'final_approved',
@@ -401,6 +466,50 @@ function Status({
     ready: '待采集'
   }[state]);
 }
+const hcpCollectionStatusMeta = {
+  pending: ['待开始', 'default'],
+  active: ['进行中', 'processing'],
+  pendingInitial: ['待初审', 'warning'],
+  initialApproved: ['初审通过', 'blue'],
+  initialRejected: ['初审未通过', 'error'],
+  pendingFinal: ['待终审', 'warning'],
+  finalApproved: ['终审通过', 'success'],
+  finalRejected: ['终审未通过', 'error'],
+  completed: ['已完成', 'success']
+};
+const hcpCollectionStatusRank = {
+  pending: 0,
+  active: 1,
+  pendingInitial: 2,
+  initialRejected: 3,
+  initialApproved: 4,
+  pendingFinal: 5,
+  finalRejected: 6,
+  finalApproved: 7,
+  completed: 8
+};
+function getHcpCollectionStatus(person) {
+  const turns = person.turns || 0;
+  const submitted = person.submitted || 0;
+  const initialApproved = person.initialApproved || 0;
+  const initialRejected = person.initialRejected || 0;
+  const pendingFinal = person.pendingFinal || 0;
+  const finalApproved = person.finalApproved || 0;
+  const finalRejected = person.finalRejected || 0;
+  if (person.state === 'done' && finalApproved > 0) return 'completed';
+  if (!turns) return 'pending';
+  if (!submitted) return 'active';
+  if (finalApproved > 0) return 'finalApproved';
+  if (pendingFinal > 0) return 'pendingFinal';
+  if (initialApproved > 0 && finalRejected >= initialApproved) return 'finalRejected';
+  if (initialApproved > 0) return 'initialApproved';
+  if (initialRejected >= submitted) return 'initialRejected';
+  return 'pendingInitial';
+}
+function HcpCollectionStatus({person}) {
+  const status = hcpCollectionStatusMeta[getHcpCollectionStatus(person)];
+  return /*#__PURE__*/React.createElement(Tag, {color: status[1]}, status[0]);
+}
 function maskName(name) {
   return name?.endsWith('医生') ? `${name.slice(0, 1)}*医生` : name;
 }
@@ -451,6 +560,7 @@ function PersonOption({
 function MiniappPreview() {
   const host = useRef(null);
   const [scale, setScale] = useState(null);
+  const taskStates = (window.yubeiCollectorTaskStates || ['active']).join(',');
   useLayoutEffect(() => {
     const resize = () => {
       const box = host.current;
@@ -477,7 +587,7 @@ function MiniappPreview() {
     }
   }, /*#__PURE__*/React.createElement("iframe", {
     title: "\u5143\u533B AI \u91C7\u96C6\u7AEF",
-    src: "miniapp.html?embedded=1&v=4",
+    src: `miniapp.html?embedded=1&taskStates=${encodeURIComponent(taskStates)}&v=7`,
     style: {
       transform: `scale(${scale || 0})`
     }
@@ -552,6 +662,7 @@ function Workspace() {
     turns: 10,
     submitted: 3,
     initialApproved: 2,
+    pendingFinal: 2,
     finalApproved: 0,
     state: 'active'
   }, {
@@ -561,6 +672,7 @@ function Workspace() {
     turns: 7,
     submitted: 1,
     initialApproved: 0,
+    initialRejected: 1,
     finalApproved: 0,
     state: 'active'
   }, {
@@ -578,7 +690,8 @@ function Workspace() {
     phone: '137*****9045',
     turns: 8,
     submitted: 1,
-    initialApproved: 0,
+    initialApproved: 1,
+    finalRejected: 1,
     finalApproved: 0,
     state: 'done'
   }, {
@@ -628,6 +741,7 @@ function Workspace() {
     [profileTab, setProfileTab] = useState('personal');
   const [apiForm] = Form.useForm(),
     [integrationForm] = Form.useForm();
+  window.yubeiCollectorTaskStates = ['API-001', 'API-003', 'API-004', 'API-005'].map(apiKey => tasks.find(item => item.apiKey === apiKey)?.state || 'invalid');
   const activeMenu = ['detail', 'form', 'api'].includes(page) ? 'project' : ['flow', 'conversation'].includes(page) ? 'task' : page;
   const labels = {
     training: '训练 E 人',
@@ -740,10 +854,20 @@ function Workspace() {
     message.success('API 已复制');
   }
   function updateApiStatus(row, status) {
-    setApis(apis.map(item => item.key === row.key ? {...item, status} : item));
+    const collectorState = collectorStateByApiStatus[status];
+    setApis(current => current.map(item => item.key === row.key ? {...item, status} : item));
+    if (collectorState) {
+      setTasks(current => current.map(item => item.apiKey === row.key ? {...item, state: collectorState} : item));
+      setTask(current => current?.apiKey === row.key ? {...current, state: collectorState} : current);
+    }
     message.success(status === 'stopped' ? '采集已停止' : status === 'completed' ? '采集已完成' : '已继续采集');
   }
   function handleApiMenu(row, key) {
+    const parentProject = projects.find(item => item.key === row.project);
+    if (parentProject?.state === 'void' && ['continue', 'complete'].includes(key)) {
+      message.warning(key === 'continue' ? '当前项目已作废，无法继续采集' : '当前项目已作废，无法完成采集');
+      return;
+    }
     if (key === 'copy') {
       copyApi(row.value);
       return;
@@ -773,17 +897,20 @@ function Workspace() {
     }
     if (key === 'delete') Modal.confirm({
       title: '确认删除该 API？',
-      content: '删除后无法恢复，已发出的密钥将失效。',
+      content: '删除后无法恢复；需求端保留“已删除”记录，采集管理端同步为“已失效”。',
       okText: '确认删除',
       okButtonProps: {danger: true},
       cancelText: '取消',
       onOk: () => {
-        setApis(current => current.filter(item => item.key !== row.key));
+        setApis(current => current.map(item => item.key === row.key ? {...item, status: 'deleted'} : item));
+        setTasks(current => current.map(item => item.apiKey === row.key ? {...item, state: 'invalid'} : item));
+        setTask(current => current?.apiKey === row.key ? {...current, state: 'invalid'} : current);
         message.success('API 已删除');
       }
     });
   }
   function apiMenuItems(row) {
+    if (row.status === 'deleted') return [];
     const stateItems = row.status === 'collecting' ? [{key: 'stop', label: '停止采集'}, {key: 'complete', label: '完成采集'}] : row.status === 'stopped' ? [{key: 'continue', label: '继续采集'}, {key: 'complete', label: '完成采集'}] : [];
     return [...stateItems, ...(stateItems.length ? [{type: 'divider'}] : []), {key: 'copy', label: '复制密钥'}, {type: 'divider'}, {key: 'delete', label: '删除', danger: true}];
   }
@@ -793,10 +920,14 @@ function Workspace() {
       message.error('接口编号无效，请检查后重试');
       return;
     }
-    setApis(apis.map(item => item.key === matched.key ? {...item, status: 'collecting', company: '上海元采数据服务有限公司'} : item));
+    if (matched.status !== 'pending') {
+      message.error(matched.status === 'deleted' ? '该接口已删除，无法对接' : '该接口已对接或不可再次对接');
+      return;
+    }
+    setApis(current => current.map(item => item.key === matched.key ? {...item, status: 'collecting', company: '上海元采数据服务有限公司'} : item));
     if (!tasks.some(item => item.apiKey === matched.key)) {
       const project = projects.find(item => item.key === matched.project);
-      setTasks([{
+      setTasks(current => [{
         key: 'T-' + Date.now(),
         apiKey: matched.key,
         project: matched.project,
@@ -805,7 +936,7 @@ function Workspace() {
         target: matched.peak,
         current: 0,
         state: 'active'
-      }, ...tasks]);
+      }, ...current]);
     }
     setModal(null);
     integrationForm.resetFields();
@@ -927,14 +1058,49 @@ function Workspace() {
     setDoctorDrawer(null);
     message.success('已移除 HCP，相关任务与数据已隐藏');
   }
+  function completeHcpCollection(person) {
+    if ((person.finalApproved || 0) < 1) {
+      message.warning('至少需要一条终审通过的数据，才能完成采集');
+      return;
+    }
+    Modal.confirm({
+      title: '确认完成该采集对象的数据采集？',
+      content: `当前已有 ${person.finalApproved} 条终审通过数据。`,
+      okText: '完成',
+      cancelText: '取消',
+      onOk: () => {
+        setPeople(current => current.map(item => item.key === person.key ? {...item, state: 'done'} : item));
+        message.success('采集已完成');
+      }
+    });
+  }
   function updateRecordStage(target, stage, successMessage) {
     setRecords(records.map(item => item.key === target.key ? {
       ...item,
       stage,
       conversation
     } : item));
+    const countChanges = {
+      initial_rejected: {initialRejected: 1},
+      initial_approved: {initialApproved: 1, pendingFinal: 1},
+      final_rejected: {finalRejected: 1, pendingFinal: -1},
+      final_approved: {finalApproved: 1, pendingFinal: -1}
+    }[stage];
+    if (countChanges && target.name) {
+      setPeople(current => current.map(person => person.name === target.name ? Object.entries(countChanges).reduce((next, [field, change]) => ({
+        ...next,
+        [field]: Math.max(0, (next[field] || 0) + change)
+      }), person) : person));
+    }
     setRecord(null);
     message.success(successMessage);
+  }
+  function getInitialReviewDisabledReason() {
+    return {
+      stopped: '接口已停止，暂不可进行数据初审',
+      done: '接口已完成，不可再进行数据初审',
+      invalid: '接口已失效，不可再进行数据初审'
+    }[task.state];
   }
   const pagination = {
     pageSize: 5,
@@ -946,7 +1112,7 @@ function Workspace() {
       next_page: '下一页'
     }
   };
-  function title(text, sub, action, back) {
+  function title(text, sub, action, back, status) {
     return /*#__PURE__*/React.createElement("div", {
       className: "page-heading"
     }, /*#__PURE__*/React.createElement("div", {
@@ -957,7 +1123,9 @@ function Workspace() {
         name: "arrow"
       }),
       onClick: back
-    }), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h1", null, text), sub && /*#__PURE__*/React.createElement("div", {
+    }), /*#__PURE__*/React.createElement("div", null, status ? /*#__PURE__*/React.createElement("div", {
+      className: "title-line"
+    }, /*#__PURE__*/React.createElement("h1", null, text), status) : /*#__PURE__*/React.createElement("h1", null, text), sub && /*#__PURE__*/React.createElement("div", {
       className: "subtitle"
     }, sub))), action);
   }
@@ -967,15 +1135,25 @@ function Workspace() {
   function updateProjectState(row, state) {
     setProjects(current => current.map(item => item.key === row.key ? {...item, state} : item));
     setSelected(current => current?.key === row.key ? {...current, state} : current);
+    if (state === 'done') {
+      const completedApiKeys = new Set(apis.filter(item => item.project === row.key && item.status === 'completed').map(item => item.key));
+      setApis(current => current.map(item => item.project === row.key && item.status !== 'completed' ? {...item, status: 'stopped'} : item));
+      setTasks(current => current.map(item => item.project === row.key ? {...item, state: completedApiKeys.has(item.apiKey) ? 'done' : 'stopped'} : item));
+      setTask(current => current?.project === row.key ? {...current, state: completedApiKeys.has(current.apiKey) ? 'done' : 'stopped'} : current);
+    } else if (state === 'void') {
+      setApis(current => current.map(item => item.project === row.key ? {...item, status: 'stopped'} : item));
+      setTasks(current => current.map(item => item.project === row.key ? {...item, state: 'stopped'} : item));
+      setTask(current => current?.project === row.key ? {...current, state: 'stopped'} : current);
+    }
     message.success({active: '项目已恢复为进行中', done: '项目已完成采集', void: '项目已作废'}[state]);
   }
   function handleProjectAction(row, key) {
     if (key === 'continue') { updateProjectState(row, 'active'); return; }
     if (key === 'complete') {
-      Modal.confirm({title: '确认完成采集？', content: '完成后项目将移至「已完成」，可通过“继续采集”恢复。', okText: '完成采集', cancelText: '取消', onOk: () => updateProjectState(row, 'done')});
+      Modal.confirm({title: '确认完成采集？', content: '完成后项目将移至「已完成」；已完成接口保持不变，其余接口将同步停止。', okText: '完成采集', cancelText: '取消', onOk: () => updateProjectState(row, 'done')});
       return;
     }
-    if (key === 'void') Modal.confirm({title: '确认作废项目？', content: '作废后项目将移至「已作废」，可通过“继续采集”恢复。', okText: '作废项目', okButtonProps: {danger: true}, cancelText: '取消', onOk: () => updateProjectState(row, 'void')});
+    if (key === 'void') Modal.confirm({title: '确认作废项目？', content: '作废后项目将移至「已作废」，项目下所有接口将同步停止。', okText: '作废项目', okButtonProps: {danger: true}, cancelText: '取消', onOk: () => updateProjectState(row, 'void')});
   }
   function projectMoreItems(row) {
     if (row.state === 'active') return [{key: 'complete', label: '完成采集'}, {key: 'void', label: '作废项目', danger: true}];
@@ -1050,8 +1228,8 @@ function Workspace() {
     dataIndex: 'status',
     width: 100,
     render: value => /*#__PURE__*/React.createElement(Tag, {
-      color: value === 'completed' ? 'success' : value === 'collecting' ? 'processing' : value === 'stopped' ? 'default' : 'warning'
-    }, value === 'completed' ? '已完成' : value === 'collecting' ? '采集中' : value === 'stopped' ? '已停止' : '待对接')
+      color: value === 'completed' ? 'success' : value === 'collecting' ? 'processing' : value === 'deleted' ? 'error' : value === 'stopped' ? 'default' : 'warning'
+    }, value === 'completed' ? '已完成' : value === 'collecting' ? '采集中' : value === 'deleted' ? '已删除' : value === 'stopped' ? '已停止' : '待对接')
   }, {
     title: '对接企业',
     dataIndex: 'company',
@@ -1066,14 +1244,12 @@ function Workspace() {
     key: 'action',
     width: 130,
     fixed: 'right',
-    render: (_, row) => /*#__PURE__*/React.createElement(Space, {
+    render: (_, row) => row.status === 'deleted' ? /*#__PURE__*/React.createElement('span', {
+      className: 'empty-value'
+    }, '—') : /*#__PURE__*/React.createElement(Space, {
       size: 4,
       className: 'api-actions'
-    }, /*#__PURE__*/React.createElement(Button, {
-      type: 'link',
-      size: 'small',
-      onClick: () => editApi(row)
-    }, '编辑'), /*#__PURE__*/React.createElement(Dropdown, {
+    }, /*#__PURE__*/React.createElement(Dropdown, {
       trigger: ['click'],
       menu: {
         items: apiMenuItems(row),
@@ -1082,7 +1258,7 @@ function Workspace() {
     }, /*#__PURE__*/React.createElement(Button, {
       type: 'link',
       size: 'small'
-    }, '更多')))
+    }, '操作')))
   }];
   const taskColumns = [{
     title: page === 'task' ? '采集接口' : '采集任务',
@@ -1099,11 +1275,7 @@ function Workspace() {
       sub: "\u4E3B\u4EFB\u533B\u5E08",
       masked: false
     })
-  }, ...(page === 'task' ? [{
-    title: '采集要求',
-    width: 200,
-    render: (_, r) => projects.find(project => project.key === r.project)?.requirements || '暂未填写'
-  }] : []), {
+  }, {
     title: '采集用 E 人',
     width: 150,
     render: (_, r) => /*#__PURE__*/React.createElement(Person, {
@@ -1254,7 +1426,7 @@ function Workspace() {
       text: item[0],
       value
     })), record => record.stage),
-    defaultFilteredValue: page === 'flow' && flowTab === 'data' ? ['initial_approved'] : undefined,
+    defaultFilteredValue: page === 'flow' && flowTab === 'data' ? ['initial_approved', 'final_approved'] : undefined,
     render: (_, record) => {
       const status = getConversationStatus(record, page === 'detail' ? 'demand' : 'collector');
       return status ? /*#__PURE__*/React.createElement(Tag, {
@@ -1281,7 +1453,8 @@ function Workspace() {
     return records.filter(item => item.name === name && getConversationStatus(item, 'collector')).sort((a, b) => b.time.localeCompare(a.time))[0];
   }
   function recordTable() {
-    const reviewRecords = visibleRecords.filter(item => getConversationStatus(item, page === 'detail' ? 'demand' : 'collector'));
+    const sourceRecords = page === 'flow' ? visibleRecords.filter(item => item.apiKey === task.apiKey && ['initial_approved', 'final_approved'].includes(item.stage)) : visibleRecords;
+    const reviewRecords = sourceRecords.filter(item => getConversationStatus(item, page === 'detail' ? 'demand' : 'collector'));
     const filteredRecords = page === 'detail' && datasetReviewFilter !== 'all' ? reviewRecords.filter(item => item.stage === datasetReviewFilter) : reviewRecords;
     const reviewOptions = [
       {label: `全部 ${reviewRecords.length}`, value: 'all'},
@@ -1746,7 +1919,9 @@ function Workspace() {
     type: "primary",
     icon: /*#__PURE__*/React.createElement(Icon, {name: "plus"}),
     onClick: openApiCreator
-  }, "新增 API 接口"), () => navigate('project')), /*#__PURE__*/React.createElement("div", {
+  }, "新增 API 接口"), () => navigate('project'), /*#__PURE__*/React.createElement(ProjectStatus, {
+    state: selected.state
+  })), /*#__PURE__*/React.createElement("div", {
     className: "detail-stats"
   }, /*#__PURE__*/React.createElement(Card, null, /*#__PURE__*/React.createElement("div", {
     className: "eyebrow",
@@ -1971,17 +2146,19 @@ function Workspace() {
       setInviteMode('existing');
       setModal('invite');
     }
-  }, "\u9080\u8BF7\u91C7\u96C6\u5BF9\u8C61")), () => navigate('task')), /*#__PURE__*/React.createElement("div", {
+  }, "\u9080\u8BF7\u91C7\u96C6\u5BF9\u8C61")), () => navigate('task'), /*#__PURE__*/React.createElement(Status, {
+    state: task.state
+  })), /*#__PURE__*/React.createElement("div", {
     className: "detail-stats task-detail-stats"
   }, /*#__PURE__*/React.createElement(Card, null, /*#__PURE__*/React.createElement("div", {
     className: "eyebrow"
-  }, "\u91C7\u96C6\u76EE\u6807"), /*#__PURE__*/React.createElement("div", {
+  }, "\u91C7\u96C6\u8981\u6C42"), /*#__PURE__*/React.createElement("div", {
     className: "subtitle",
     style: {
       marginTop: 12,
       lineHeight: 1.7
     }
-  }, projects.find(p => p.key === task.project)?.goal || '\u6682\u672A\u8BBE\u7F6E\u91C7\u96C6\u76EE\u6807')), /*#__PURE__*/React.createElement(Card, null, /*#__PURE__*/React.createElement("div", {
+  }, projects.find(p => p.key === task.project)?.requirements || '\u6682\u672A\u8BBE\u7F6E\u91C7\u96C6\u8981\u6C42')), /*#__PURE__*/React.createElement(Card, null, /*#__PURE__*/React.createElement("div", {
     className: "eyebrow"
   }, "HCP \u6570"), /*#__PURE__*/React.createElement("div", {
     className: "stat-number",
@@ -2048,7 +2225,7 @@ function Workspace() {
       pageSize: 10
     },
     scroll: {
-      x: 800
+      x: 920
     },
     columns: [{
       title: '姓名',
@@ -2058,42 +2235,52 @@ function Workspace() {
       dataIndex: 'phone'
     }, {
       title: '已对话次数',
-      dataIndex: 'turns'
+      dataIndex: 'turns',
+      sorter: (a, b) => (a.turns || 0) - (b.turns || 0)
     }, {
       title: '已提交',
-      dataIndex: 'submitted'
+      dataIndex: 'submitted',
+      sorter: (a, b) => (a.submitted || 0) - (b.submitted || 0)
     }, {
       title: '初审通过',
       dataIndex: 'initialApproved',
-      width: 120
+      width: 120,
+      sorter: (a, b) => (a.initialApproved || 0) - (b.initialApproved || 0)
     }, {
       title: '终审通过',
       dataIndex: 'finalApproved',
-      width: 120
+      width: 120,
+      sorter: (a, b) => (a.finalApproved || 0) - (b.finalApproved || 0)
+    }, {
+      title: '状态',
+      width: 120,
+      defaultSortOrder: 'descend',
+      sorter: (a, b) => hcpCollectionStatusRank[getHcpCollectionStatus(a)] - hcpCollectionStatusRank[getHcpCollectionStatus(b)],
+      render: (_, person) => /*#__PURE__*/React.createElement(HcpCollectionStatus, {
+        person: person
+      })
     }, {
       title: '操作',
       width: 260,
       fixed: 'right',
-      render: (_, p) => /*#__PURE__*/React.createElement(Space, null, /*#__PURE__*/React.createElement(Button, {
-        type: "link",
-        onClick: () => setDoctorDrawer(p)
-      }, "\u67E5\u770B\u6570\u636E"), p.state === 'active' && /*#__PURE__*/React.createElement(Popconfirm, {
-        title: "\u786E\u8BA4\u5B8C\u6210\u8BE5\u91C7\u96C6\u5BF9\u8C61\u7684\u6570\u636E\u91C7\u96C6\uFF1F",
-        onConfirm: () => {
-          setPeople(people.map(x => x.key === p.key ? {
-            ...x,
-            state: 'done'
-          } : x));
-          message.success('采集已完成');
-        },
-        okText: "\u5B8C\u6210\u91C7\u96C6",
-        cancelText: "\u53D6\u6D88"
+      render: (_, p) => /*#__PURE__*/React.createElement(Space, {
+        size: 12
       }, /*#__PURE__*/React.createElement(Button, {
         type: "link",
         style: {
           padding: 0
-        }
-      }, "\u5B8C\u6210\u91C7\u96C6")), /*#__PURE__*/React.createElement(Popconfirm, {
+        },
+        onClick: () => setDoctorDrawer(p)
+      }, "\u67E5\u770B"), getHcpCollectionStatus(p) !== 'completed' && /*#__PURE__*/React.createElement(Tooltip, {
+        title: p.finalApproved > 0 ? null : '需满足至少有1条终审通过记录'
+      }, /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement(Button, {
+        type: "link",
+        disabled: p.finalApproved < 1,
+        style: {
+          padding: 0
+        },
+        onClick: () => completeHcpCollection(p)
+      }, "\u5B8C\u6210"))), /*#__PURE__*/React.createElement(Popconfirm, {
         title: "\u786E\u8BA4\u79FB\u9664\u8BE5 HCP\uFF1F",
         onConfirm: () => removeHcpFromTask(p),
         okText: "\u786E\u5B9A",
@@ -2998,13 +3185,19 @@ function Workspace() {
       type: "primary",
       disabled: editing >= 0,
       onClick: () => updateRecordStage(record, 'pending_initial_review', '错别字清洗完成，进入待初审')
-    }, "\u5B8C\u6210\u9519\u522B\u5B57\u6E05\u6D17"), page === 'flow' && record.stage === 'pending_initial_review' && /*#__PURE__*/React.createElement(Button, {
+    }, "\u5B8C\u6210\u9519\u522B\u5B57\u6E05\u6D17"), page === 'flow' && record.stage === 'pending_initial_review' && /*#__PURE__*/React.createElement(Tooltip, {
+      title: getInitialReviewDisabledReason()
+    }, /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement(Button, {
       danger: true,
+      disabled: task.state !== 'active',
       onClick: () => updateRecordStage(record, 'initial_rejected', '初审未通过，需要重新采集')
-    }, "\u521D\u5BA1\u4E0D\u901A\u8FC7"), page === 'flow' && record.stage === 'pending_initial_review' && /*#__PURE__*/React.createElement(Button, {
+    }, "\u521D\u5BA1\u4E0D\u901A\u8FC7"))), page === 'flow' && record.stage === 'pending_initial_review' && /*#__PURE__*/React.createElement(Tooltip, {
+      title: getInitialReviewDisabledReason()
+    }, /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement(Button, {
       type: "primary",
+      disabled: task.state !== 'active',
       onClick: () => updateRecordStage(record, 'initial_approved', '初审通过，已提交需求端终审')
-    }, "\u521D\u5BA1\u901A\u8FC7"), page === 'detail' && record.stage === 'initial_approved' && /*#__PURE__*/React.createElement(Button, {
+    }, "\u521D\u5BA1\u901A\u8FC7"))), page === 'detail' && record.stage === 'initial_approved' && /*#__PURE__*/React.createElement(Button, {
       danger: true,
       onClick: () => updateRecordStage(record, 'final_rejected', '终审未通过，需要重新采集')
     }, "\u7EC8\u5BA1\u4E0D\u901A\u8FC7"), page === 'detail' && record.stage === 'initial_approved' && /*#__PURE__*/React.createElement(Button, {

@@ -1,3 +1,19 @@
+const collectorParams=new URLSearchParams(window.location.search);
+window.collectorTaskStates=(collectorParams.get('taskStates')||collectorParams.get('taskStatus')||'active').split(',');
+window.collectorTasks=[
+  {apiKey:'API-001',name:'华东区域采集 API',subtitle:'情景演练',duration:'每次对话约 10 分钟'},
+  {apiKey:'API-003',name:'华北区域采集 API',subtitle:'情景演练',duration:'每次对话约 10 分钟'},
+  {apiKey:'API-004',name:'西南区域采集 API',subtitle:'情景演练',duration:'每次对话约 10 分钟'},
+  {apiKey:'API-005',name:'华中区域采集 API',subtitle:'情景演练',duration:'每次对话约 10 分钟'}
+].map((task,index)=>({...task,state:collectorTaskStates[index]||'invalid'}));
+window.selectedCollectorTask=0;
+window.collectorTaskState=collectorTasks[0].state;
+window.collectorTaskStatusMeta={
+  active:{label:'进行中',className:'task-status-active'},
+  stopped:{label:'已失效',className:'task-status-invalid'},
+  done:{label:'已完成',className:'task-status-done'},
+  invalid:{label:'已移除',className:'task-status-removed'}
+};
 const baseRenderHome=window.renderHome;
 window.renderHome=function(){baseRenderHome();const bar=document.querySelector('.bar');let notice=bar.querySelector('#header-notice');if(!notice){notice=document.createElement('button');notice.id='header-notice';notice.className='header-notice';notice.type='button';notice.setAttribute('aria-label','消息中心');notice.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 10a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 22h4"/></svg><i>1</i>';notice.onclick=()=>go('notices');bar.append(notice);}};
 window.certStep=window.certStep||1;
@@ -13,42 +29,55 @@ window.renderCert=function(){
   app.innerHTML=head+`<div class="verify-title"><h2>上传认证附件</h2><p>清晰的证件照片可加快审核进度。</p></div><section class="verify-upload"><div class="upload-heading"><span>职业凭证</span><small>工作证、执业证等</small></div><button class="upload-tile"><i>＋</i><span>上传图片</span></button></section><section class="verify-upload"><div class="upload-heading"><span>身份证</span><small>请上传正反面</small></div><div class="upload-row"><button class="upload-tile"><i>＋</i><span>人像面</span></button><button class="upload-tile"><i>＋</i><span>国徽面</span></button></div></section><div class="verify-actions"><button onclick="certStep=2;render()">上一步</button><button class="primary" onclick="go('home')">确认提交</button></div></section>`;
 };
 window.getTaskConversationStats=function(){
-  const screened=records.filter(r=>!['ai_screening','ai_rejected'].includes(r.stage)).length;
-  const submitted=records.filter(r=>['submitted','initial_rejected','initial_approved','final_rejected','final_approved'].includes(r.stage)).length;
+  const screened=records.filter(r=>!['in_progress','initial_screening','initial_screen_rejected','ai_screen_failed'].includes(r.stage)).length;
+  const submitted=records.filter(r=>['pending_initial_review','initial_rejected','pending_final_review','final_rejected','final_approved'].includes(r.stage)).length;
   return {dialogues:records.length,screened,submitted,adopted:records.filter(r=>r.stage==='final_approved').length};
 };
 window.renderTasks=function(){
   title.textContent='专项采集';
-  const completed=records.some(r=>r.stage==='final_approved');
-  const status=completed?'<span class="pill task-completed">已完成</span>':'';
-  const content=taskFilter!=='ended'?`<article class="task"><div class="task-heading"><div class="ico">${icon('eye')}</div><div><h3>眼科专项采集</h3><small>情景演练</small></div>${status}</div><div class="task-bottom"><span>每次对话约 10 分钟</span><button class="primary" onclick="go('detail')">查看详情 ${icon('arrow')}</button></div></article>`:'<div class="empty">暂无已结束的专项采集<br>已结束的专项采集将展示在这里</div>';
-  app.innerHTML=`<div class="task-filter-row"><div class="seg"><button class="${taskFilter==='all'?'active':''}" onclick="filterTasks('all')">全部 1</button><button class="${taskFilter==='active'?'active':''}" onclick="filterTasks('active')">进行中 1</button><button class="${taskFilter==='ended'?'active':''}" onclick="filterTasks('ended')">已结束 0</button></div><button class="history-link" onclick="go('records')">历史对话 ›</button></div>${content}`;
+  const activeCount=collectorTasks.filter(task=>task.state==='active').length;
+  const endedCount=collectorTasks.length-activeCount;
+  const shown=collectorTasks.map((task,index)=>({task,index})).filter(({task})=>taskFilter==='all'||taskFilter==='active'&&task.state==='active'||taskFilter==='ended'&&task.state!=='active');
+  const content=shown.length?shown.map(({task,index})=>{
+    const meta=collectorTaskStatusMeta[task.state]||collectorTaskStatusMeta.invalid;
+    return `<article class="task"><div class="task-heading"><div class="ico">${icon('eye')}</div><div><h3>${task.name}</h3><small>${task.subtitle}</small></div><span class="pill task-status ${meta.className}">${meta.label}</span></div><div class="task-bottom"><span>${task.duration}</span><button class="primary" onclick="openCollectorTask(${index})">查看详情 ${icon('arrow')}</button></div></article>`;
+  }).join(''):'<div class="empty">当前状态暂无专项采集</div>';
+  app.innerHTML=`<div class="task-filter-row"><div class="seg"><button class="${taskFilter==='all'?'active':''}" onclick="filterTasks('all')">全部 ${collectorTasks.length}</button><button class="${taskFilter==='active'?'active':''}" onclick="filterTasks('active')">进行中 ${activeCount}</button><button class="${taskFilter==='ended'?'active':''}" onclick="filterTasks('ended')">已结束 ${endedCount}</button></div></div>${content}`;
+};
+window.openCollectorTask=function(index){
+  selectedCollectorTask=index;
+  collectorTaskState=collectorTasks[index].state;
+  go('detail');
 };
 const doctorConversationStatus={
-  ai_screening:['AI 初筛中','#eaf3ff','#2878d0'],
-  ai_rejected:['AI 初筛未通过','#fff1f0','#cf3f3f'],
+  in_progress:['进行中','#eaf3ff','#2878d0'],
+  initial_screening:['初筛中','#eaf3ff','#2878d0'],
+  initial_screen_rejected:['初筛未通过','#fff1f0','#cf3f3f'],
+  ai_screen_failed:['AI初筛失败','#fff1f0','#cf3f3f'],
   pending_submit:['待提交','#fff3df','#ac7b28'],
-  submitted:['已提交','#eef2f7','#667085'],
-  initial_rejected:['初审未通过<br>需要重新采集','#fff1f0','#cf3f3f'],
-  initial_approved:['初审已通过','#eaf3ff','#2878d0'],
-  final_rejected:['终审未通过<br>需要重新采集','#fff1f0','#cf3f3f'],
-  final_approved:['已采用','#eaf8f1','#27845b']
+  pending_initial_review:['待初审','#eef2f7','#667085'],
+  initial_rejected:['初审未通过','#fff1f0','#cf3f3f'],
+  pending_final_review:['待终审','#eef2f7','#667085'],
+  final_approved:['终审通过','#eaf8f1','#27845b'],
+  final_rejected:['终审未通过','#fff1f0','#cf3f3f']
 };
 records=[
-  {stage:'pending_submit',time:'09.17 11:25'},
-  {stage:'ai_screening',time:'09.17 10:48'},
-  {stage:'ai_rejected',time:'09.16 16:20'},
-  {stage:'submitted',time:'09.16 14:05'},
-  {stage:'initial_rejected',time:'09.15 15:36'},
-  {stage:'initial_approved',time:'09.15 11:12'},
-  {stage:'final_rejected',time:'09.14 17:08'},
-  {stage:'final_approved',time:'09.14 09:42'}
+  {stage:'in_progress',time:'09.17 11:25'},
+  {stage:'initial_screening',time:'09.17 10:48'},
+  {stage:'initial_screen_rejected',time:'09.16 16:20'},
+  {stage:'ai_screen_failed',time:'09.16 14:05'},
+  {stage:'pending_submit',time:'09.15 15:36'},
+  {stage:'pending_initial_review',time:'09.15 11:12'},
+  {stage:'initial_rejected',time:'09.14 17:08'},
+  {stage:'pending_final_review',time:'09.14 09:42'},
+  {stage:'final_approved',time:'09.13 16:35'},
+  {stage:'final_rejected',time:'09.13 10:18'}
 ];
 const doctorStatus=r=>doctorConversationStatus[r.stage]||doctorConversationStatus.pending_submit;
 window.renderRecords=function(){
   title.textContent='历史对话';
-  const actionable=['pending_submit','ai_rejected','initial_rejected','final_rejected'];
-  const reviewing=['ai_screening','submitted','initial_approved'];
+  const actionable=['in_progress','initial_screen_rejected','ai_screen_failed','pending_submit','initial_rejected','final_rejected'];
+  const reviewing=['initial_screening','pending_initial_review','pending_final_review'];
   const completed=['final_approved'];
   const groups={actionable,reviewing,completed};
   const shown=records.map((r,i)=>({r,i})).filter(({r})=>recordFilter==='all'||groups[recordFilter].includes(r.stage));
@@ -57,7 +86,9 @@ window.renderRecords=function(){
 };
 window.renderRecord=function(){
   title.textContent='对话详情';
-  const r=records[selected],status=doctorStatus(r),retry=['ai_rejected','initial_rejected','final_rejected'].includes(r.stage);
-  app.innerHTML=`<div class="chat-state record-status">眼科专项采集<span class="pill conversation-status" style="background:${status[1]};color:${status[2]}">${status[0]}</span></div><div class="chat">${messages()}</div><div class="row">${retry?'<button class="primary" onclick="go(\'chat\')">重新采集</button>':r.stage==='pending_submit'?'<button class="primary secondary" onclick="go(\'chat\')">再次对话</button><button class="primary" onclick="confirmSubmit()">确认提交</button>':'<button class="primary secondary" onclick="go(\'records\')">返回历史对话</button>'}</div>`;
+  const r=records[selected],status=doctorStatus(r),recollect=['initial_screen_rejected','initial_rejected','final_rejected'].includes(r.stage);
+  const actions=r.stage==='in_progress'?'<button class="primary" onclick="go(\'voice\')">继续对话</button>':recollect?'<button class="primary" onclick="go(\'voice\')">重新采集</button>':r.stage==='ai_screen_failed'?'<button class="primary" onclick="retryInitialScreen()">重试初筛</button>':r.stage==='pending_submit'?'<button class="primary secondary" onclick="go(\'voice\')">再次对话</button><button class="primary" onclick="confirmSubmit()">确认提交</button>':'<button class="primary secondary" onclick="go(\'records\')">返回历史对话</button>';
+  app.innerHTML=`<div class="chat-state record-status">眼科专项采集<span class="pill conversation-status" style="background:${status[1]};color:${status[2]}">${status[0]}</span></div><div class="chat">${messages()}</div><div class="row">${actions}</div>`;
 };
-submitted=function(){records[selected].stage='submitted';go('records')};
+window.retryInitialScreen=function(){records[selected].stage='initial_screening';go('records')};
+submitted=function(){records[selected].stage='pending_initial_review';go('records')};
