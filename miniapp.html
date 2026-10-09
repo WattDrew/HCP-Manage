@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>元医 AI · 采集端</title>
+  <link rel="stylesheet" href="assets/miniapp.css">
+  <link rel="stylesheet" href="assets/miniapp-overrides.css?v=6">
+  <link rel="stylesheet" href="assets/cert-redesign.css">
+  <link rel="stylesheet" href="assets/task-voice.css">
+  <link rel="stylesheet" href="assets/task-refine.css?v=3">
+  <link rel="stylesheet" href="assets/conversation-review.css">
+  <link rel="stylesheet" href="assets/review-submit.css">
+  <link rel="stylesheet" href="assets/informed-consent.css?v=2">
+</head>
+<body>
+  <div class="stage">
+    <div class="phone">
+      <div class="status">
+        <span>9:41</span>
+        <span class="status-icons">● ● ●</span>
+      </div>
+
+      <header class="bar">
+        <button id="back" aria-label="返回"></button>
+        <span class="brandmark" id="brandmark"></span>
+        <span id="title">元医 AI</span>
+        <span class="capsule" id="capsule">••• ⊙</span>
+      </header>
+
+      <!-- 页面内容由 assets/miniapp.js 中的独立渲染模块生成。 -->
+      <main class="screen" id="app"></main>
+      <nav class="bottom-nav" id="nav" aria-label="主导航"></nav>
+      <div class="home-indicator"></div>
+
+      <div class="modal" id="endModal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <div class="sheet">
+          <h2 id="modal-title">完成本次对话？</h2>
+          <p>结束后可查看对话内容，确认后提交采集记录。</p>
+          <button class="primary" id="endNow">结束并查看记录</button>
+          <button class="primary secondary" id="continue">继续对话</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="assets/miniapp.js?v=7"></script>
+  <script src="assets/miniapp-overrides.js?v=8"></script>
+  <script src="assets/cert-redesign.js"></script>
+  <script src="assets/task-voice.js?v=6"></script>
+  <script src="assets/task-refine.js?v=3"></script>
+  <script src="assets/conversation-review.js?v=5"></script>
+  <script src="assets/review-submit.js?v=5"></script>
+  <script src="assets/informed-consent.js?v=2"></script>
+  <script src="assets/hcp-removal-sync.js?v=1"></script>
+</body>
+</html>

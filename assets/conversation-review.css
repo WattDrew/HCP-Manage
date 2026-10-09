@@ -1,0 +1,10 @@
+.screen[data-page="review"]{padding:0;background:#f7f9fc}
+.review-page{display:flex;flex-direction:column;height:100%;min-height:100%;padding:15px 16px 18px}
+.review-meta{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;color:#68758a;font-size:11px}
+.review-meta small{color:#a7b0bd;font-size:10px}
+.review-list{flex:1;overflow:auto;padding:3px 1px}
+.review-list .message{margin-bottom:19px}
+.review-list .message-label{font-size:10px}
+.review-actions{display:flex;gap:10px;flex:none;padding-top:12px}
+.review-actions button{flex:1;height:45px;border:0;border-radius:9px;background:#eaf2ff;color:#388ff0;font-size:14px}
+.review-actions .primary{background:#388ff0;color:#fff}

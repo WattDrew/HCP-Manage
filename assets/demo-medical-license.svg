@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="620" viewBox="0 0 960 620">
+  <defs>
+    <linearGradient id="paper" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f7fbff"/>
+      <stop offset="1" stop-color="#e8f1f8"/>
+    </linearGradient>
+    <pattern id="lines" width="24" height="24" patternUnits="userSpaceOnUse">
+      <path d="M0 24L24 0" stroke="#dbe7ef" stroke-width="1" opacity=".35"/>
+    </pattern>
+  </defs>
+  <rect width="960" height="620" rx="18" fill="url(#paper)"/>
+  <rect width="960" height="620" rx="18" fill="url(#lines)"/>
+  <rect x="18" y="18" width="924" height="584" rx="10" fill="none" stroke="#236792" stroke-width="3"/>
+  <rect x="31" y="31" width="898" height="558" rx="7" fill="none" stroke="#88abc1"/>
+  <text x="480" y="90" text-anchor="middle" font-family="Microsoft YaHei, sans-serif" font-size="42" font-weight="700" fill="#173f59">医师执业证书</text>
+  <text x="480" y="125" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" letter-spacing="3" fill="#52788f">PRACTICE LICENSE OF PHYSICIAN</text>
+  <rect x="74" y="164" width="210" height="270" rx="8" fill="#d9e6ee" stroke="#88a6b9" stroke-width="2"/>
+  <circle cx="179" cy="252" r="55" fill="#9db5c4"/>
+  <path d="M104 404c8-79 38-118 75-118s67 39 75 118" fill="#7897aa"/>
+  <text x="179" y="466" text-anchor="middle" font-family="Microsoft YaHei, sans-serif" font-size="18" fill="#526c7c">医师照片</text>
+  <g font-family="Microsoft YaHei, sans-serif" fill="#24485e">
+    <text x="334" y="184" font-size="18" fill="#607d8e">姓名</text><text x="480" y="184" font-size="22" font-weight="600">张明远</text>
+    <line x1="334" y1="202" x2="864" y2="202" stroke="#a9c0ce"/>
+    <text x="334" y="246" font-size="18" fill="#607d8e">性别</text><text x="480" y="246" font-size="20">男</text>
+    <line x1="334" y1="264" x2="864" y2="264" stroke="#a9c0ce"/>
+    <text x="334" y="308" font-size="18" fill="#607d8e">执业类别</text><text x="480" y="308" font-size="20">临床</text>
+    <line x1="334" y1="326" x2="864" y2="326" stroke="#a9c0ce"/>
+    <text x="334" y="370" font-size="18" fill="#607d8e">执业范围</text><text x="480" y="370" font-size="20">眼耳鼻咽喉科专业</text>
+    <line x1="334" y1="388" x2="864" y2="388" stroke="#a9c0ce"/>
+    <text x="334" y="432" font-size="18" fill="#607d8e">执业地点</text><text x="480" y="432" font-size="20">上海市第一人民医院</text>
+    <line x1="334" y1="450" x2="864" y2="450" stroke="#a9c0ce"/>
+    <text x="334" y="494" font-size="18" fill="#607d8e">证书编码</text><text x="480" y="494" font-family="Arial, sans-serif" font-size="19">DEMO-110310-20260917</text>
+  </g>
+  <circle cx="790" cy="500" r="70" fill="none" stroke="#c74444" stroke-width="6" opacity=".72"/>
+  <circle cx="790" cy="500" r="56" fill="none" stroke="#c74444" stroke-width="2" opacity=".72"/>
+  <text x="790" y="494" text-anchor="middle" font-family="Microsoft YaHei, sans-serif" font-size="18" font-weight="700" fill="#c74444" opacity=".82">演示样例</text>
+  <text x="790" y="520" text-anchor="middle" font-family="Microsoft YaHei, sans-serif" font-size="14" fill="#c74444" opacity=".82">非真实证件</text>
+  <text x="72" y="558" font-family="Microsoft YaHei, sans-serif" font-size="15" fill="#7890a0">签发日期 2026 年 09 月 10 日</text>
+</svg>

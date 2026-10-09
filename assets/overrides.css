@@ -1,0 +1,68 @@
+.project-cell a.cell-title {
+  color: #1677ff;
+  cursor: pointer;
+}
+
+.project-cell a.cell-title:hover {
+  color: #4096ff;
+  text-decoration: underline;
+}
+
+.analysis-dashboard .signal-dot.awaiting-clean,
+.analysis-dashboard .legend-dot.awaiting-clean {
+  background: #f5a524;
+  box-shadow: 0 0 5px #f5a52477;
+}
+
+.analysis-dashboard .advice-heading {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid #e5eaf1;
+  color: #607089;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.analysis-dashboard .status-warn {
+  color: #607089;
+}
+
+/* Give the progress dots a small, tactile 3D bead treatment. */
+.analysis-dashboard .signal-dot {
+  position: relative;
+  background: radial-gradient(circle at 32% 28%, #92a0b2 0 12%, #5d6b7d 38%, #39485b 78%);
+  box-shadow: inset -1px -1px 1px #17253699, inset 1px 1px 1px #ffffff33, 0 1px 2px #07142666;
+}
+
+.analysis-dashboard .signal-dot.awaiting-clean {
+  background: radial-gradient(circle at 32% 28%, #ffe6a3 0 12%, #f8b63f 38%, #cf7d0a 78%);
+  box-shadow: inset -1px -1px 1px #9b570099, inset 1px 1px 1px #ffffff88, 0 1px 3px #f5a52488;
+}
+
+.analysis-dashboard .signal-dot.cleaned {
+  background: radial-gradient(circle at 32% 28%, #a4f2d7 0 12%, #58cda1 38%, #248263 78%);
+  box-shadow: inset -1px -1px 1px #15544399, inset 1px 1px 1px #ffffff88, 0 1px 3px #49b58e88;
+}
+
+.api-secret {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.api-copy-button {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  color: #1677ff !important;
+}
+
+.api-copy-button:hover {
+  color: #1677ff !important;
+  background: #eaf3ff !important;
+}
+
+.api-actions {
+  white-space: nowrap;
+}

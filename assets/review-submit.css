@@ -1,0 +1,21 @@
+.modal.success{
+  align-items:center;
+  padding:24px;
+}
+.modal.success .sheet{
+  padding:30px 24px 24px;
+  border-radius:18px;
+  box-shadow:0 16px 40px #17233a24;
+}
+.modal.success .sheet h2::before{
+  display:grid;
+  place-items:center;
+  width:42px;
+  height:42px;
+  margin:0 auto 13px;
+  border-radius:50%;
+  background:#eaf3ff;
+  color:#388ff0;
+  content:"✓";
+  font-size:23px;
+}
