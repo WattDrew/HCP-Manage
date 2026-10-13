@@ -467,6 +467,7 @@ function Status({
   }[state]);
 }
 const hcpCollectionStatusMeta = {
+  pendingRegistration: ['待注册', 'default'],
   pending: ['待开始', 'default'],
   active: ['进行中', 'processing'],
   pendingInitial: ['待初审', 'warning'],
@@ -478,6 +479,7 @@ const hcpCollectionStatusMeta = {
   completed: ['已完成', 'success']
 };
 const hcpCollectionStatusRank = {
+  pendingRegistration: -1,
   pending: 0,
   active: 1,
   pendingInitial: 2,
@@ -496,6 +498,7 @@ function getHcpCollectionStatus(person) {
   const pendingFinal = person.pendingFinal || 0;
   const finalApproved = person.finalApproved || 0;
   const finalRejected = person.finalRejected || 0;
+  if (person.state === 'pending_registration') return 'pendingRegistration';
   if (person.state === 'done' && finalApproved > 0) return 'completed';
   if (!turns) return 'pending';
   if (!submitted) return 'active';
@@ -703,10 +706,20 @@ function Workspace() {
     initialApproved: 1,
     finalApproved: 1,
     state: 'done'
+  }, {
+    key: 'H-007',
+    name: '刘医生',
+    phone: '136*****2468',
+    turns: 0,
+    submitted: 0,
+    initialApproved: 0,
+    finalApproved: 0,
+    state: 'pending_registration'
   }]);
   const [hcps, setHcps] = useState(() => people.map((p, index) => ({
     ...p,
-    title: index === 0 ? '主任医师' : '执业医师'
+    registrationStatus: p.state === 'pending_registration' ? 'pending_registration' : 'authenticated',
+    createdAt: '2026.09.17'
   })));
   const [removedHcpKeys, setRemovedHcpKeys] = useState(() => {
     try {
@@ -720,6 +733,7 @@ function Workspace() {
     [taskDrawer, setTaskDrawer] = useState(null),
     [taskEditing, setTaskEditing] = useState(null),
     [projectEditing, setProjectEditing] = useState(null),
+    [hcpEditing, setHcpEditing] = useState(null),
     [aiGenerating, setAiGenerating] = useState(false),
     [aiGenerated, setAiGenerated] = useState(false),
     [inviteMode, setInviteMode] = useState('existing');
@@ -1029,6 +1043,48 @@ function Workspace() {
     setPermissions(settingEdit ? permissions.map(p => p.key === item.key ? item : p) : [...permissions, item]);
     setModal(null);
     message.success(settingEdit ? '权限已更新' : '权限已添加');
+  }
+  function openHcpEditor(hcp) {
+    setHcpEditing(hcp);
+    hcpForm.setFieldsValue({
+      name: hcp.name,
+      phone: hcp.rawPhone || hcp.phone
+    });
+    setModal('hcp');
+  }
+  function saveHcp(values) {
+    const previous = hcpEditing;
+    const existing = hcps.find(hcp => hcp.phone === values.phone || hcp.rawPhone === values.phone);
+    if (existing && existing.key !== previous?.key) {
+      message.warning('该手机号已存在');
+      return;
+    }
+    if (!previous) {
+      setHcps([...hcps, {
+        key: 'HCP-' + Date.now(),
+        name: values.name,
+        rawPhone: values.phone,
+        phone: values.phone.slice(0, 3) + '*****' + values.phone.slice(-4),
+        registrationStatus: 'pending_registration',
+        createdAt: dayjs().format('YYYY.MM.DD')
+      }]);
+      setModal(null);
+      message.success('HCP 已添加，等待元医 AI 注册与认证');
+      return;
+    }
+    const phoneChanged = values.phone !== (previous.rawPhone || previous.phone);
+    const nameChanged = values.name !== previous.name;
+    setHcps(hcps.map(hcp => hcp.key !== previous.key ? hcp : {
+      ...hcp,
+      name: values.name,
+      rawPhone: phoneChanged ? values.phone : hcp.rawPhone,
+      phone: phoneChanged ? values.phone.slice(0, 3) + '*****' + values.phone.slice(-4) : hcp.phone,
+      registrationStatus: phoneChanged ? 'pending_registration' : hcp.registrationStatus
+    }));
+    if (nameChanged) setPeople(people.map(person => person.key === previous.key ? {...person, name: values.name} : person));
+    setHcpEditing(null);
+    setModal(null);
+    message.success(phoneChanged ? '手机号已更新，请重新完成元医 AI 注册与认证' : 'HCP 信息已更新');
   }
   function markSessionValidity(valid) {
     if (!doctorSession) return;
@@ -2236,20 +2292,24 @@ function Workspace() {
     }, {
       title: '已对话次数',
       dataIndex: 'turns',
+      render: (value, person) => person.state === 'pending_registration' ? '—' : value,
       sorter: (a, b) => (a.turns || 0) - (b.turns || 0)
     }, {
       title: '已提交',
       dataIndex: 'submitted',
+      render: (value, person) => person.state === 'pending_registration' ? '—' : value,
       sorter: (a, b) => (a.submitted || 0) - (b.submitted || 0)
     }, {
       title: '初审通过',
       dataIndex: 'initialApproved',
       width: 120,
+      render: (value, person) => person.state === 'pending_registration' ? '—' : value,
       sorter: (a, b) => (a.initialApproved || 0) - (b.initialApproved || 0)
     }, {
       title: '终审通过',
       dataIndex: 'finalApproved',
       width: 120,
+      render: (value, person) => person.state === 'pending_registration' ? '—' : value,
       sorter: (a, b) => (a.finalApproved || 0) - (b.finalApproved || 0)
     }, {
       title: '状态',
@@ -2375,6 +2435,7 @@ function Workspace() {
     }),
     onClick: () => {
       hcpForm.resetFields();
+      setHcpEditing(null);
       setModal('hcp');
     }
   }, "\u6DFB\u52A0 HCP")), /*#__PURE__*/React.createElement(Card, {
@@ -2387,13 +2448,13 @@ function Workspace() {
       paddingTop: 24
     }
   }, /*#__PURE__*/React.createElement(Table, {
-    dataSource: hcps,
+    dataSource: [...hcps].sort((a, b) => (a.registrationStatus === 'pending_registration' ? -1 : 0) - (b.registrationStatus === 'pending_registration' ? -1 : 0)),
     pagination: pagination,
     scroll: {
       x: 850
     },
     columns: [{
-      title: 'HCP 姓名',
+      title: '姓名',
       dataIndex: 'name',
       width: 220,
       render: v => v
@@ -2402,24 +2463,28 @@ function Workspace() {
       dataIndex: 'phone',
       width: 200
     }, {
-      title: '职业 / 职称',
-      dataIndex: 'title',
-      width: 240
-    }, {
-      title: '管理状态',
+      title: '状态',
       width: 160,
-      render: () => /*#__PURE__*/React.createElement(Tag, {
-        color: "blue"
-      }, "\u5DF2\u5165\u5E93")
+      render: (_, hcp) => /*#__PURE__*/React.createElement(Tag, {
+        color: hcp.registrationStatus === 'pending_registration' ? 'default' : 'success'
+      }, hcp.registrationStatus === 'pending_registration' ? '待注册' : '已认证')
     }, {
-      title: '录入时间',
+      title: '创建时间',
       width: 180,
-      render: () => '2026.09.17'
+      dataIndex: 'createdAt'
     }, {
       title: '操作',
-      width: 120,
+      width: 180,
       fixed: 'right',
-      render: (_, p) => /*#__PURE__*/React.createElement(Popconfirm, {
+      render: (_, p) => /*#__PURE__*/React.createElement(Space, {
+        size: 12
+      }, /*#__PURE__*/React.createElement(Button, {
+        type: "link",
+        style: {
+          padding: 0
+        },
+        onClick: () => openHcpEditor(p)
+      }, "\u7F16\u8F91"), /*#__PURE__*/React.createElement(Popconfirm, {
         title: "\u786E\u8BA4\u79FB\u9664\u8BE5 HCP\uFF1F",
         okText: "\u786E\u8BA4\u79FB\u9664",
         cancelText: "\u53D6\u6D88",
@@ -2433,7 +2498,7 @@ function Workspace() {
         style: {
           padding: 0
         }
-      }, "\u79FB\u9664"))
+      }, "\u79FB\u9664")))
     }]
   })))), page === 'setting' && /*#__PURE__*/React.createElement(React.Fragment, null, title('系统设置', '', /*#__PURE__*/React.createElement(Button, {
     type: "primary",
@@ -2713,7 +2778,8 @@ function Workspace() {
       setPeople([...people, newHcp]);
       if (!selectedHcp) setHcps([...hcps, {
         ...newHcp,
-        title: v.title || '医生'
+        registrationStatus: 'pending_registration',
+        createdAt: dayjs().format('YYYY.MM.DD')
       }]);
       setModal(null);
       message.success('已邀请采集对象');
@@ -2731,7 +2797,7 @@ function Workspace() {
     placeholder: "\u641C\u7D22\u6216\u9009\u62E9 HCP",
     options: hcps.map(h => ({
       value: h.key,
-      label: `${h.name} · ${h.title || '医生'}`
+      label: `${h.name} · ${h.rawPhone?.slice(-4) || h.phone?.slice(-4) || '—'}`
     }))
   }))) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(Form.Item, {
     label: "\u533B\u751F\u59D3\u540D",
@@ -2756,39 +2822,21 @@ function Workspace() {
   }, /*#__PURE__*/React.createElement(Input, {
     placeholder: "\u8BF7\u8F93\u5165\u624B\u673A\u53F7",
     maxLength: 11
-  })), /*#__PURE__*/React.createElement(Form.Item, {
-    label: "\u804C\u79F0",
-    name: "title"
-  }, /*#__PURE__*/React.createElement(Input, {
-    placeholder: "\u4F8B\u5982\uFF1A\u4E3B\u4EFB\u533B\u5E08"
-  }))), /*#__PURE__*/React.createElement(Form.Item, {
-    label: "\u5BA2\u6237\u7AEF"
-  }, /*#__PURE__*/React.createElement(Tag, null, "\u5143\u533B AI")))), /*#__PURE__*/React.createElement(Modal, {
-    title: "\u6DFB\u52A0 HCP",
+  }))))), /*#__PURE__*/React.createElement(Modal, {
+    title: hcpEditing ? '编辑 HCP' : '添加 HCP',
     open: modal === 'hcp',
-    onCancel: () => setModal(null),
+    onCancel: () => {
+      setHcpEditing(null);
+      setModal(null);
+    },
     onOk: () => hcpForm.submit(),
-    okText: "\u6DFB\u52A0",
+    okText: hcpEditing ? '保存' : '添加',
     cancelText: "\u53D6\u6D88",
     destroyOnHidden: true
   }, /*#__PURE__*/React.createElement(Form, {
     form: hcpForm,
     layout: "vertical",
-    onFinish: v => {
-      if (hcps.some(h => h.rawPhone === v.phone || h.phone === v.phone.slice(0, 3) + '*****' + v.phone.slice(-3))) {
-        message.warning('该手机号已存在');
-        return;
-      }
-      setHcps([...hcps, {
-        key: 'HCP-' + Date.now(),
-        name: v.name,
-        rawPhone: v.phone,
-        phone: v.phone.slice(0, 3) + '*****' + v.phone.slice(-3),
-        title: v.title
-      }]);
-      setModal(null);
-      message.success('HCP 已添加');
-    }
+    onFinish: saveHcp
   }, /*#__PURE__*/React.createElement(Form.Item, {
     label: "\u533B\u751F\u59D3\u540D",
     name: "name",
@@ -2806,22 +2854,11 @@ function Workspace() {
       required: true,
       message: '请输入手机号'
     }, {
-      pattern: /^1\d{10}$/,
-      message: '请输入 11 位有效手机号'
+      validator: (_, value) => /^1\d{10}$/.test(value) || hcpEditing && value === hcpEditing.phone ? Promise.resolve() : Promise.reject(new Error('请输入 11 位有效手机号'))
     }]
   }, /*#__PURE__*/React.createElement(Input, {
     placeholder: "\u8BF7\u8F93\u5165\u624B\u673A\u53F7",
     maxLength: 11
-  })), /*#__PURE__*/React.createElement(Form.Item, {
-    label: "\u804C\u79F0",
-    name: "title",
-    rules: [{
-      required: true,
-      whitespace: true,
-      message: '请输入职称'
-    }]
-  }, /*#__PURE__*/React.createElement(Input, {
-    placeholder: "\u4F8B\u5982\uFF1A\u4E3B\u4EFB\u533B\u5E08"
   })))), /*#__PURE__*/React.createElement(Modal, {
     title: settingEdit?.type === 'account' ? '编辑账号' : '添加账号',
     open: modal === 'account',
