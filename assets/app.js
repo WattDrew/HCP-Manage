@@ -596,6 +596,141 @@ function MiniappPreview() {
     }
   })));
 }
+function TenantManagement({
+  message
+}) {
+  const [tenants, setTenants] = useState([{key: 'TEN-001', name: '华东医疗数据服务中心', code: 'yubei-east', admin: '陈敏', phone: '138****3201', projects: 8, users: 16, status: 'active', createdAt: '2026.10.08'}, {key: 'TEN-002', name: '华南医学调研有限公司', code: 'yubei-south', admin: '李扬', phone: '139****6582', projects: 5, users: 9, status: 'active', createdAt: '2026.10.05'}, {key: 'TEN-003', name: '北方 HCP 数据运营组', code: 'yubei-north', admin: '王璐', phone: '136****7093', projects: 3, users: 6, status: 'disabled', createdAt: '2026.09.28'}]);
+  const [keyword, setKeyword] = useState('');
+  const [status, setStatus] = useState('all');
+  const [editing, setEditing] = useState(null);
+  const [open, setOpen] = useState(false);
+  const [form] = Form.useForm();
+  const showEditor = row => {
+    setEditing(row || null);
+    form.resetFields();
+    form.setFieldsValue(row || {code: `yubei-${Date.now().toString(36)}`, status: 'active', projects: 0, users: 1});
+    setOpen(true);
+  };
+  const saveTenant = values => {
+    const password = form.getFieldValue('password');
+    if (!editing && !password) {
+      message.warning('请设置管理员登录密码');
+      return;
+    }
+    const item = {...values, password: password || editing?.password, key: editing?.key || `TEN-${Date.now()}`, createdAt: editing?.createdAt || dayjs().format('YYYY.MM.DD')};
+    setTenants(current => editing ? current.map(tenant => tenant.key === item.key ? item : tenant) : [item, ...current]);
+    setOpen(false);
+    message.success(editing ? '租户信息已更新' : '采集租户已创建，并已生成管理端账号');
+  };
+  const copyCode = code => {
+    if (navigator.clipboard?.writeText) navigator.clipboard.writeText(code);
+    message.success('租户标识已复制');
+  };
+  const filtered = tenants.filter(tenant => (status === 'all' || tenant.status === status) && [tenant.name, tenant.code, tenant.admin].join(' ').toLowerCase().includes(keyword.toLowerCase()));
+  useEffect(() => {
+    const createButton = document.querySelector('.content .page-heading > .ant-btn-primary');
+    if (createButton) createButton.textContent = '新增租户';
+  }, []);
+  useEffect(() => {
+    if (!open) return;
+    const setupTimer = setTimeout(() => {
+      const tenantModal = document.querySelector('.ant-modal-root:has(.tenant-form-grid)');
+      const tenantForm = tenantModal?.querySelector('form.ant-form');
+      const accountGroup = tenantForm?.querySelector('.tenant-form-grid');
+      if (!tenantForm || !accountGroup || tenantForm.querySelector('.tenant-password-item')) return;
+      const modalTitle = tenantModal.querySelector('.ant-modal-title');
+      if (modalTitle && !editing) modalTitle.textContent = '新增租户';
+      const formItems = [...tenantForm.children].filter(node => node.classList.contains('ant-form-item'));
+      const tenantNameField = formItems[0];
+      const tenantCodeField = formItems[1];
+      const accountHeading = document.createElement('div');
+      accountHeading.className = 'tenant-form-section account';
+      accountHeading.textContent = '账号信息';
+      tenantForm.insertBefore(accountHeading, tenantForm.firstChild);
+      tenantForm.insertBefore(accountGroup, accountHeading.nextSibling);
+      if (!editing) {
+        const passwordField = document.createElement('div');
+        passwordField.className = 'ant-form-item tenant-password-item';
+        passwordField.innerHTML = '<div class="ant-form-item-label"><label><span class="required-mark">*</span>登录密码</label></div><div class="ant-form-item-control"><div class="ant-form-item-control-input"><div class="ant-form-item-control-input-content"><input class="ant-input" type="password" autocomplete="new-password" placeholder="请设置管理员登录密码" /></div></div></div>';
+        const passwordInput = passwordField.querySelector('input');
+        passwordInput.addEventListener('input', event => form.setFieldsValue({password: event.target.value}));
+        accountGroup.append(passwordField);
+      }
+      const verificationHeading = document.createElement('div');
+      verificationHeading.className = 'tenant-form-section verification';
+      verificationHeading.textContent = '实名认证';
+      tenantForm.insertBefore(verificationHeading, accountGroup.nextSibling);
+      tenantNameField.classList.add('tenant-company-name');
+      tenantNameField.style.setProperty('display', 'block', 'important');
+      tenantNameField.querySelector('label').textContent = '企业名称';
+      tenantForm.insertBefore(tenantNameField, verificationHeading.nextSibling);
+      const verificationMethod = document.createElement('div');
+      verificationMethod.className = 'ant-form-item tenant-verification-method';
+      verificationMethod.innerHTML = '<div class="ant-form-item-label"><label>认证方式</label></div><div class="ant-form-item-control"><span class="tenant-verification-value">企业认证</span></div>';
+      tenantForm.insertBefore(verificationMethod, tenantNameField);
+      tenantCodeField.style.setProperty('display', 'none', 'important');
+      tenantForm.querySelectorAll('.tenant-form-grid')[1]?.style.setProperty('display', 'none', 'important');
+      const primaryButton = tenantModal.querySelector('.ant-modal-footer .ant-btn-primary');
+      if (primaryButton) primaryButton.textContent = editing ? '保存' : '创建';
+    }, 80);
+    return () => clearTimeout(setupTimer);
+  }, [open, editing, form]);
+  useEffect(() => {
+    if (!open) return;
+    const fitTenantPanel = () => {
+      const root = document.querySelector('.ant-modal-root:has(.tenant-form-grid)');
+      const wrap = root?.querySelector('.ant-modal-wrap');
+      const panel = root?.querySelector('.ant-modal');
+      const content = root?.querySelector('.ant-modal-content');
+      const viewportHeight = `${window.innerHeight}px`;
+      if (wrap) Object.assign(wrap.style, {height: viewportHeight, minHeight: viewportHeight});
+      if (panel) Object.assign(panel.style, {position: 'fixed', top: '0', right: '0', bottom: '0', height: viewportHeight, minHeight: viewportHeight, margin: '0'});
+      if (content) Object.assign(content.style, {height: viewportHeight, minHeight: viewportHeight});
+    };
+    fitTenantPanel();
+    window.addEventListener('resize', fitTenantPanel);
+    return () => window.removeEventListener('resize', fitTenantPanel);
+  }, [open]);
+  useEffect(() => {
+    const tableBody = document.querySelector('.tenant-card .ant-table-tbody');
+    if (!tableBody) return;
+    const closeMenus = () => document.querySelectorAll('.tenant-more-menu.is-open').forEach(menu => menu.classList.remove('is-open'));
+    tableBody.querySelectorAll('tr').forEach(row => {
+      const actions = row.querySelector('td:last-child');
+      const tenantKey = row.getAttribute('data-row-key');
+      if (!actions || !tenantKey || actions.querySelector('.tenant-more')) return;
+      const more = document.createElement('button');
+      more.type = 'button';
+      more.className = 'ant-btn ant-btn-link tenant-more';
+      more.textContent = '更多';
+      const menu = document.createElement('div');
+      menu.className = 'tenant-more-menu';
+      menu.innerHTML = '<button type="button" data-action="reset">重置密码</button><button type="button" data-action="delete" class="danger">删除租户</button>';
+      more.addEventListener('click', event => {event.stopPropagation();const wasOpen = menu.classList.contains('is-open');closeMenus();if (!wasOpen) {const rect = more.getBoundingClientRect();if (menu.parentElement !== document.body) document.body.append(menu);Object.assign(menu.style, {top: `${rect.bottom + 6}px`, left: `${Math.max(12, rect.right - 116)}px`});menu.classList.add('is-open');}});
+      menu.addEventListener('click', event => {
+        const action = event.target.getAttribute('data-action');
+        if (!action) return;
+        if (action === 'reset') message.success('已重置管理员登录密码');
+        if (action === 'delete' && window.confirm('确认删除该采集租户？删除后无法恢复。')) {setTenants(current => current.filter(tenant => tenant.key !== tenantKey));message.success('采集租户已删除');}
+        closeMenus();
+      });
+      actions.append(more, menu);
+    });
+    document.addEventListener('click', closeMenus);
+    return () => document.removeEventListener('click', closeMenus);
+  }, [tenants, message]);
+  useEffect(() => {
+    const tenantTable = document.querySelector('.tenant-card .ant-table-content > table');
+    if (!tenantTable) return;
+    [4, 3, 1].forEach(index => {
+      tenantTable.querySelectorAll('colgroup').forEach(group => group.children[index]?.remove());
+      tenantTable.querySelectorAll('tr').forEach(row => row.children[index]?.remove());
+    });
+    tenantTable.style.width = '100%';
+    tenantTable.style.minWidth = '100%';
+  }, [filtered.length, status, keyword]);
+  return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement('div', {className: 'page-heading'}, /*#__PURE__*/React.createElement('div', null, /*#__PURE__*/React.createElement('h1', null, '采集租户管理'), /*#__PURE__*/React.createElement('div', {className: 'subtitle'}, '为外部采集团队开通语贝内部 CMS 管理账号，并维护其服务范围。')), /*#__PURE__*/React.createElement(Button, {type: 'primary', icon: /*#__PURE__*/React.createElement(Icon, {name: 'plus'}), onClick: () => showEditor()}, '新增采集租户')), /*#__PURE__*/React.createElement('div', {className: 'stats tenant-stats'}, [{label: '全部租户', value: tenants.length, unit: '家', icon: 'grid'}, {label: '启用中', value: tenants.filter(item => item.status === 'active').length, unit: '家', icon: 'check'}, {label: '管理端账号', value: tenants.reduce((total, item) => total + item.users, 0), unit: '个', icon: 'users'}, {label: '进行中项目', value: tenants.reduce((total, item) => total + item.projects, 0), unit: '个', icon: 'task'}].map(item => /*#__PURE__*/React.createElement(Card, {className: 'stat-card', key: item.label}, /*#__PURE__*/React.createElement('div', {className: 'stat-top'}, /*#__PURE__*/React.createElement('span', null, item.label), /*#__PURE__*/React.createElement('span', {className: 'stat-icon'}, /*#__PURE__*/React.createElement(Icon, {name: item.icon}))), /*#__PURE__*/React.createElement('div', {className: 'stat-number'}, item.value, /*#__PURE__*/React.createElement('span', {className: 'stat-unit'}, item.unit))))), /*#__PURE__*/React.createElement(Card, {className: 'table-card tenant-card'}, /*#__PURE__*/React.createElement('div', {className: 'section-title'}, '租户列表', /*#__PURE__*/React.createElement('small', null, '每个租户拥有独立的采集管理空间、账号和数据权限。')), /*#__PURE__*/React.createElement('div', {className: 'toolbar tenant-toolbar'}, /*#__PURE__*/React.createElement(Space, {wrap: true}, /*#__PURE__*/React.createElement(Input, {prefix: /*#__PURE__*/React.createElement(Icon, {name: 'search', size: 16}), allowClear: true, placeholder: '搜索租户名称、标识或管理员', value: keyword, onChange: event => setKeyword(event.target.value)}), /*#__PURE__*/React.createElement(Select, {value: status, onChange: setStatus, style: {width: 126}, options: [{value: 'all', label: '全部状态'}, {value: 'active', label: '启用中'}, {value: 'disabled', label: '已停用'}]})), /*#__PURE__*/React.createElement('span', {className: 'tenant-count'}, `共 ${filtered.length} 家租户`)), /*#__PURE__*/React.createElement('div', {className: 'table-wrap'}, /*#__PURE__*/React.createElement(Table, {dataSource: filtered, rowKey: 'key', pagination: {pageSize: 6, showSizeChanger: false, showTotal: number => `共 ${number} 条`}, scroll: {x: 1050}, columns: [{title: '租户名称', dataIndex: 'name', width: 260, render: (value, row) => /*#__PURE__*/React.createElement('div', {className: 'tenant-name-cell'}, /*#__PURE__*/React.createElement('span', {className: 'tenant-logo'}, value.slice(0, 1)), /*#__PURE__*/React.createElement('div', null, /*#__PURE__*/React.createElement('div', {className: 'cell-title'}, value), /*#__PURE__*/React.createElement('div', {className: 'cell-meta'}, '语贝内部 CMS')))}, {title: '租户标识', dataIndex: 'code', width: 180, render: value => /*#__PURE__*/React.createElement(Space, {size: 6}, /*#__PURE__*/React.createElement('code', {className: 'tenant-code'}, value), /*#__PURE__*/React.createElement(Button, {type: 'text', size: 'small', icon: /*#__PURE__*/React.createElement(Icon, {name: 'copy', size: 15}), onClick: () => copyCode(value), 'aria-label': '复制租户标识'}))}, {title: '管理员账号', width: 180, render: (_, row) => /*#__PURE__*/React.createElement('div', null, /*#__PURE__*/React.createElement('div', {className: 'cell-title'}, row.admin), /*#__PURE__*/React.createElement('div', {className: 'cell-meta'}, row.phone))}, {title: '采集项目', dataIndex: 'projects', width: 130, render: value => `${value} 个进行中`}, {title: '成员账号', dataIndex: 'users', width: 120, render: value => `${value} 个`}, {title: '状态', dataIndex: 'status', width: 120, render: value => /*#__PURE__*/React.createElement(Tag, {color: value === 'active' ? 'success' : 'default'}, value === 'active' ? '启用中' : '已停用')}, {title: '开通时间', dataIndex: 'createdAt', width: 140}, {title: '操作', width: 180, fixed: 'right', render: (_, row) => /*#__PURE__*/React.createElement(Space, {size: 14}, /*#__PURE__*/React.createElement(Button, {type: 'link', style: {padding: 0}, onClick: () => showEditor(row)}, '编辑'), /*#__PURE__*/React.createElement(Button, {type: 'link', style: {padding: 0}, onClick: () => {setTenants(current => current.map(item => item.key === row.key ? {...item, status: item.status === 'active' ? 'disabled' : 'active'} : item));message.success(row.status === 'active' ? '租户已停用' : '租户已启用');}}, row.status === 'active' ? '停用' : '启用'))}]}))), /*#__PURE__*/React.createElement(Modal, {title: editing ? '编辑采集租户' : '新增采集租户', open, onCancel: () => setOpen(false), onOk: () => form.submit(), okText: editing ? '保存' : '创建并开通', cancelText: '取消', destroyOnHidden: true}, /*#__PURE__*/React.createElement(Alert, {type: 'info', showIcon: true, message: editing ? '保存后将同步更新该租户的管理端配置。' : '创建后将自动开通语贝内部 CMS，并生成该租户的管理员账号。', style: {marginBottom: 20}}), /*#__PURE__*/React.createElement(Form, {form, layout: 'vertical', onFinish: saveTenant}, /*#__PURE__*/React.createElement(Form.Item, {label: '租户名称', name: 'name', rules: [{required: true, whitespace: true, message: '请输入租户名称'}]}, /*#__PURE__*/React.createElement(Input, {placeholder: '例如：华东医疗数据服务中心', maxLength: 50})), /*#__PURE__*/React.createElement(Form.Item, {label: '租户标识', name: 'code', extra: '用于管理端登录与系统内数据隔离。', rules: [{required: true, whitespace: true, pattern: /^[a-z0-9-]+$/, message: '请使用小写字母、数字或连字符'}]}, /*#__PURE__*/React.createElement(Input, {placeholder: '例如：yubei-east'})), /*#__PURE__*/React.createElement('div', {className: 'tenant-form-grid'}, /*#__PURE__*/React.createElement(Form.Item, {label: '管理员姓名', name: 'admin', rules: [{required: true, whitespace: true, message: '请输入管理员姓名'}]}, /*#__PURE__*/React.createElement(Input, {placeholder: '请输入姓名'})), /*#__PURE__*/React.createElement(Form.Item, {label: '管理员手机号', name: 'phone', rules: [{required: true, message: '请输入手机号'}]}, /*#__PURE__*/React.createElement(Input, {placeholder: '请输入手机号'}))), /*#__PURE__*/React.createElement('div', {className: 'tenant-form-grid'}, /*#__PURE__*/React.createElement(Form.Item, {label: '初始成员账号数', name: 'users', rules: [{required: true}]}, /*#__PURE__*/React.createElement(InputNumber, {min: 1, max: 999, precision: 0, style: {width: '100%'}})), /*#__PURE__*/React.createElement(Form.Item, {label: '账号状态', name: 'status', rules: [{required: true}]}, /*#__PURE__*/React.createElement(Select, {options: [{value: 'active', label: '启用'}, {value: 'disabled', label: '停用'}]}))))));
+}
 const removedHcpStorageKey = 'yubei-removed-task-hcps';
 function Workspace() {
   const {
@@ -765,6 +900,7 @@ function Workspace() {
     hcp: 'HCP 管理',
     setting: '系统设置',
     profile: '用户中心',
+    tenant: '采集租户管理',
     api: 'API 管理',
     ai: '元医 AI',
     detail: '项目详情',
@@ -1024,6 +1160,37 @@ function Workspace() {
     setAccounts(settingEdit ? accounts.map(a => a.key === item.key ? item : a) : [...accounts, item]);
     setModal(null);
     message.success(settingEdit ? '账号已更新' : '账号已添加');
+  }
+  function resetAccountPassword(account) {
+    let password = '';
+    Modal.confirm({
+      title: '重置密码',
+      content: /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("p", {
+        style: {
+          marginBottom: 16
+        }
+      }, `请为${account.name}设置新的登录密码。`), /*#__PURE__*/React.createElement(Input.Password, {
+        placeholder: "请输入新密码（不少于 6 位）",
+        autoComplete: "new-password",
+        onChange: event => {
+          password = event.target.value;
+        }
+      }), /*#__PURE__*/React.createElement("div", {
+        className: "eyebrow",
+        style: {
+          marginTop: 8
+        }
+      }, "重置后，该账号将使用新密码登录。")),
+      okText: '确认重置',
+      cancelText: '取消',
+      onOk: () => {
+        if (password.trim().length < 6) {
+          message.error('新密码不得少于 6 位');
+          return Promise.reject();
+        }
+        message.success(`已重置${account.name}的登录密码`);
+      }
+    });
   }
   function saveRole(values) {
     const item = {
@@ -1726,6 +1893,16 @@ function Workspace() {
       }]
     }, {
       type: 'group',
+      label: '客户端',
+      children: [{
+        key: 'tenant',
+        icon: /*#__PURE__*/React.createElement(Icon, {
+          name: "setting"
+        }),
+        label: '采集租户管理'
+      }]
+    }, {
+      type: 'group',
       label: '采集端',
       children: [{
         key: 'ai',
@@ -2390,7 +2567,7 @@ function Workspace() {
       })
     }, {
       key: 'target',
-      label: '预计数据量',
+      label: '峰值数据量',
       children: `${task.target} 条`
     }, {
       key: 'current',
@@ -2567,21 +2744,43 @@ function Workspace() {
           padding: 0
         },
         onClick: () => openSettingModal('account', r)
-      }, "\u7F16\u8F91"), /*#__PURE__*/React.createElement(Popconfirm, {
-        title: "\u786E\u8BA4\u79FB\u9664\u8BE5\u8D26\u53F7\uFF1F",
-        okText: "\u786E\u8BA4\u79FB\u9664",
-        cancelText: "\u53D6\u6D88",
-        onConfirm: () => {
-          setAccounts(accounts.filter(a => a.key !== r.key));
-          message.success('账号已移除');
+      }, "\u7F16\u8F91"), /*#__PURE__*/React.createElement(Dropdown, {
+        trigger: ['click'],
+        menu: {
+          items: [{
+            key: 'reset',
+            label: '重置密码'
+          }, {
+            type: 'divider'
+          }, {
+            key: 'remove',
+            label: '移除',
+            danger: true
+          }],
+          onClick: ({
+            key
+          }) => {
+            if (key === 'reset') {
+              resetAccountPassword(r);
+              return;
+            }
+            Modal.confirm({
+              title: '确认移除该账号？',
+              okText: '确认移除',
+              cancelText: '取消',
+              onOk: () => {
+                setAccounts(accounts.filter(a => a.key !== r.key));
+                message.success('账号已移除');
+              }
+            });
+          }
         }
       }, /*#__PURE__*/React.createElement(Button, {
         type: "link",
-        danger: true,
         style: {
           padding: 0
         }
-      }, "\u79FB\u9664")))
+      }, "更多")))
     }]
   })), settingsTab === 'role' && /*#__PURE__*/React.createElement("div", {
     className: "table-wrap",
@@ -2700,7 +2899,7 @@ function Workspace() {
         }
       }, r.enabled ? '停用' : '启用'))
     }]
-  })))), page === 'profile' && /*#__PURE__*/React.createElement(React.Fragment, null, title('用户中心', '管理个人账号、所属企业与登录安全。'), /*#__PURE__*/React.createElement(Card, {
+  })))), page === 'tenant' && /*#__PURE__*/React.createElement(TenantManagement, {message}), page === 'profile' && /*#__PURE__*/React.createElement(React.Fragment, null, title('用户中心', '管理个人账号、所属企业与登录安全。'), /*#__PURE__*/React.createElement(Card, {
     className: 'profile-card'
   }, /*#__PURE__*/React.createElement('div', {className: 'profile-summary'}, /*#__PURE__*/React.createElement(Avatar, {size: 64, style: {color: '#1677ff', background: '#e6f4ff', fontSize: 24}}, '周'), /*#__PURE__*/React.createElement('div', null, /*#__PURE__*/React.createElement('div', {className: 'profile-name'}, '周新华'), /*#__PURE__*/React.createElement('div', {className: 'subtitle'}, '管理员 · 上海元采数据服务有限公司')))), /*#__PURE__*/React.createElement(Card, {
     className: 'table-card profile-details'

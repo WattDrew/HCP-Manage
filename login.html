@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>登录 · 采集管理端</title>
+  <link rel="stylesheet" href="assets/login.css?v=1" />
+  <link rel="stylesheet" href="assets/login-overrides.css?v=1" />
+</head>
+<body>
+  <main class="login-page">
+    <section class="login-brand">
+      <div class="login-brand-inner">
+        <div class="brand-lockup"><span class="brand-symbol">语</span><span>HCP数字资产</span></div>
+        <div class="brand-copy"><span class="eyebrow">COLLECTION MANAGEMENT</span><h1>让高质量采集<br />更简单、更可靠</h1><p>面向采集服务团队的统一管理工作台。</p></div>
+      </div>
+    </section>
+    <section class="login-panel">
+      <div class="login-card">
+        <div class="login-card-head"><h2>登录采集管理端</h2></div>
+        <div class="login-tabs" role="tablist"><button class="active" data-tab="sms">手机号验证码</button><button data-tab="password">账号密码</button></div>
+        <form id="sms-form" class="login-form active">
+          <label>手机号<input type="tel" placeholder="请输入手机号" maxlength="11" /></label>
+          <label>验证码<span class="code-control"><input placeholder="请输入验证码" maxlength="6" /><button type="button" class="send-code">获取验证码</button></span></label>
+          <button type="submit" class="login-submit">登录</button>
+        </form>
+        <form id="password-form" class="login-form">
+          <label>账号<input autocomplete="username" placeholder="请输入账号" /></label>
+          <label>密码<input type="password" autocomplete="current-password" placeholder="请输入密码" /></label>
+          <div class="form-row"><label class="remember"><input type="checkbox" />记住登录状态</label><a href="#">忘记密码？</a></div>
+          <button type="submit" class="login-submit">登录</button>
+        </form>
+        <p id="login-message" class="login-message" aria-live="polite"></p>
+      </div>
+    </section>
+  </main>
+<script src="assets/login.js?v=2"></script>
+</body>
+</html>

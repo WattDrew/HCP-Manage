@@ -1,0 +1,3 @@
+document.querySelectorAll('.login-tabs button').forEach(button=>button.addEventListener('click',()=>{document.querySelectorAll('.login-tabs button,.login-form').forEach(node=>node.classList.remove('active'));button.classList.add('active');document.getElementById(`${button.dataset.tab}-form`).classList.add('active');document.getElementById('login-message').textContent=''}));
+document.querySelector('.send-code').addEventListener('click',event=>{event.currentTarget.textContent='已发送';event.currentTarget.disabled=true;document.getElementById('login-message').textContent='验证码已发送（演示）'});
+document.querySelectorAll('.login-form').forEach(form=>form.addEventListener('submit',event=>{event.preventDefault();window.location.href='index.html'}));

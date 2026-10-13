@@ -1,0 +1,8 @@
+/* Keep the login area stable while the two methods are switched. */
+.login-card-head h2 {
+  margin: 0;
+}
+
+.login-form {
+  min-height: 246px;
+}
