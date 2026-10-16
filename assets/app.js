@@ -370,6 +370,55 @@ const conversationStatus = {
 function getConversationStatus(record, end) {
   return conversationStatus[end][record.stage] || null;
 }
+// Text modification rate is separate from the aggregate cleaning completion rate.
+const cleaningTextRule = {version: 'CLEAN-2026.10-v1', maxModificationRate: 5};
+function calculateTextModification(original, cleaned) {
+  const characters = text => Array.from(String(text).normalize('NFC').replace(/[\p{P}\p{White_Space}\s]/gu, ''));
+  const distance = (a, b) => {
+    let row = Array.from({length:b.length+1}, (_,i)=>i);
+    a.forEach((character,i) => {
+      const next = [i+1];
+      b.forEach((other,j) => next.push(Math.min(next[j]+1,row[j+1]+1,row[j]+(character===other?0:1))));
+      row = next;
+    });
+    return row[b.length];
+  };
+  const structureValid = original.length === cleaned.length && original.every((entry,i) => entry.sender === cleaned[i]?.sender && entry.id === cleaned[i]?.id);
+  const differences = original.map((entry,i) => {
+    const before = characters(entry.text), after = characters(cleaned[i]?.text || '');
+    return {original:entry.text, cleaned:cleaned[i]?.text || '', count:before.length, edits:distance(before,after)};
+  });
+  const count = differences.reduce((sum,item)=>sum+item.count,0);
+  const edits = differences.reduce((sum,item)=>sum+item.edits,0);
+  // Conservative evidence check; medicine names and clinical meaning still require human review.
+  const sensitive = differences.some(item => item.edits > 0 && /[0-9０-９不无未没否药剂毫克升片滴]|mg|ml|诊断|治疗|建议|结论|考虑|OK镜/iu.test(item.original+item.cleaned));
+  return {structureValid,count,edits,rate:count ? edits/count*100 : null,sensitive,differences};
+}
+// Character-level edit alignment for the visual comparison (punctuation is shown).
+function diffConversationText(original, modified) {
+  const before = Array.from(original), after = Array.from(modified);
+  const rows = Array.from({length:before.length+1},()=>new Uint32Array(after.length+1));
+  for (let i=0;i<=before.length;i++) rows[i][0]=i;
+  for (let j=0;j<=after.length;j++) rows[0][j]=j;
+  for (let i=1;i<=before.length;i++) for (let j=1;j<=after.length;j++) {
+    rows[i][j]=Math.min(rows[i-1][j]+1,rows[i][j-1]+1,rows[i-1][j-1]+(before[i-1]===after[j-1]?0:1));
+  }
+  const operations=[];
+  let i=before.length,j=after.length;
+  while (i || j) {
+    if (i && j && before[i-1]===after[j-1]) {operations.push({type:'same',before:before[--i],after:after[--j]});}
+    else if (i && j && rows[i][j]===rows[i-1][j-1]+1) {operations.push({type:'replace',before:before[--i],after:after[--j]});}
+    else if (j && rows[i][j]===rows[i][j-1]+1) {operations.push({type:'insert',before:'',after:after[--j]});}
+    else {operations.push({type:'delete',before:before[--i],after:''});}
+  }
+  const grouped=[];
+  operations.reverse().forEach(operation=>{
+    const previous=grouped[grouped.length-1];
+    if (previous?.type===operation.type) {previous.before+=operation.before;previous.after+=operation.after;}
+    else grouped.push({...operation});
+  });
+  return grouped;
+}
 function getReviewProgress(record) {
   const stage = record?.stage;
   const cleaned = stage && stage !== 'pending_cleaning';
@@ -1123,6 +1172,7 @@ function Workspace() {
     setModal('task');
   }
   function openRecord(r) {
+    r = records.find(item => item.key === r.key) || records.find(item => item.name === r.name && item.stage === r.stage && item.apiKey === task.apiKey) || r;
     setRecord(r);
     setRecordTab('clean');
     setConversation(r.conversation || initialConversation.map((text, i) => ({
@@ -1297,11 +1347,69 @@ function Workspace() {
       }
     });
   }
-  function updateRecordStage(target, stage, successMessage) {
+  function hasConversationChanges() {
+    if (!record) return false;
+    const original = record.originalConversation || initialConversation.map((text,i)=>({text,sender:i%2===0?'rep':'doctor'}));
+    return original.length !== conversation.length || original.some((entry,i) => {
+      const current = conversation[i];
+      return !current || entry.sender !== current.sender || entry.text !== (editing===i?editText:current.text);
+    });
+  }
+  function openOriginalComparison() {
+    if (!record) return;
+    const h=React.createElement;
+    const original=record.originalConversation || initialConversation.map((text,i)=>({text,sender:i%2===0?'rep':'doctor'}));
+    const preview=conversation.map((entry,i)=>editing===i?{...entry,text:editText}:entry);
+    const total=Math.max(original.length,preview.length);
+    const speaker=entry=>entry?.sender==='rep'?'张三 · 医药代表':`${record.name || '医生'} · 医生`;
+    const renderDiff=(segments,side)=>segments.map((segment,index)=>{
+      const text=segment[side];
+      if (side==='after' && segment.type==='delete') return h('del',{key:index,className:'compare-deleted',title:'此处内容已删除','aria-label':`已删除：${segment.before}`},segment.before);
+      if (!text) return null;
+      return h('span',{key:index,className:segment.type==='same'?'':side==='before'?'compare-original-change':segment.type==='insert'?'compare-insert':'compare-replace',title:segment.type==='replace'?`原文：${segment.before}`:segment.type==='insert'?'新增内容':segment.type==='delete'?'已删除内容':undefined},text);
+    });
+    const pairs=Array.from({length:total},(_,index)=>({index,left:original[index],right:preview[index],segments:diffConversationText(original[index]?.text || '',preview[index]?.text || '')}));
+    function ComparisonContent() {
+      const [filter,setFilter]=React.useState('all');
+      const visible=pairs.filter(pair=>filter==='all' || pair.segments.some(segment=>segment.type===filter));
+      return h('div',null,
+        h(Tabs,{className:'compare-filter-tabs',activeKey:filter,onChange:setFilter,items:[{key:'all',label:'全部'},{key:'replace',label:'修改'},{key:'insert',label:'新增'},{key:'delete',label:'删除'}]}),
+        h('div',{className:'compare-column-head'},h('b',null,'原始对话'),h('b',null,'修改后内容')),
+        h('div',{className:'compare-scroll'},visible.length?visible.map(({index,left,right,segments})=>
+          h('div',{key:index,className:'compare-message-pair'},
+            h('section',{className:'compare-message'},h('div',{className:'compare-speaker'},`${index+1}. ${left?speaker(left):'原始无此消息'}`),h('div',{className:'compare-text'},renderDiff(segments,'before'))),
+            h('section',{className:'compare-message'},h('div',{className:'compare-speaker'},`${index+1}. ${right?speaker(right):'消息已删除'}`,left?.text===right?.text && h('span',{className:'compare-unchanged'},'未修改')),h('div',{className:'compare-text'},renderDiff(segments,'after'))))
+        ):h(Empty,{image:Empty.PRESENTED_IMAGE_SIMPLE,description:'暂无此类变更',className:'compare-empty'})));
+    }
+    Modal.info({title:'原始对话对比',icon:null,width:1080,zIndex:1400,centered:true,className:'conversation-compare-modal',okText:'关闭',maskClosable:true,content:h(ComparisonContent)});
+  }
+
+  function completeCleaning() {
+    if (!record || editing >= 0) return;
+    const original = record.originalConversation || initialConversation.map((text,i)=>({text,sender:i%2===0?'rep':'doctor'}));
+    const result = calculateTextModification(original, conversation);
+    const rule = record.cleaningRule || cleaningTextRule;
+    let reason = '';
+    if (!result.structureValid) reason = '请保持消息 ID、说话人和顺序，不允许增删整轮消息。';
+    else if (result.rate === null) reason = '原始计数字符总数为 0，无法计算文本修改率，请转人工核实。';
+    else if (result.rate > rule.maxModificationRate) reason = `当前文本修改率为 ${Number(result.rate.toFixed(2))}%，超过规则要求的 ${rule.maxModificationRate}%。请回听原始语音并核实修改内容；注意只修改错别字，不修改原意。`;
+    else if (result.sensitive) reason = `当前文本修改率为 ${Number(result.rate.toFixed(2))}%，但检测到可能涉及药名、剂量、单位、数值、否定词或诊疗结论的变更。请对照原始证据并交由有权限人员复核，不可仅因比例低直接完成。`;
+    if (reason) {
+      Modal.warning({title:'暂不能完成清洗',content:React.createElement('div',null,React.createElement('p',null,reason)),okText:'返回检查'});
+      return;
+    }
+    updateRecordStage(record,'pending_initial_review','错别字清洗完成，进入待初审',{
+      originalConversation:original.map(entry=>({...entry})),
+      cleaningRule:{...rule},textModificationRate:result.rate,cleaningDifferences:result.differences,
+      cleaningCompletedAt:new Date().toISOString()
+    });
+  }
+  function updateRecordStage(target, stage, successMessage, cleaningMetadata = {}) {
     setRecords(records.map(item => item.key === target.key ? {
       ...item,
       stage,
-      conversation
+      conversation,
+      ...cleaningMetadata
     } : item));
     const countChanges = {
       initial_rejected: {initialRejected: 1},
@@ -3407,20 +3515,18 @@ function Workspace() {
     onClose: () => setRecord(null),
     extra: record && (() => {
       const status = getConversationStatus(record, page === 'detail' ? 'demand' : 'collector');
-      return status ? /*#__PURE__*/React.createElement(Tag, {
-        color: status[1]
-      }, status[0]) : null;
+      return status ? React.createElement(Tag,{color:status[1]},status[0]) : null;
     })(),
-    footer: record && (page === 'flow' && ['pending_cleaning', 'pending_initial_review'].includes(record.stage) || page === 'detail' && record.stage === 'initial_approved') && /*#__PURE__*/React.createElement("div", {
+    footer: record && (hasConversationChanges() || page === 'flow' && ['pending_cleaning', 'pending_initial_review'].includes(record.stage) || page === 'detail' && record.stage === 'initial_approved') && /*#__PURE__*/React.createElement("div", {
       style: {
         display: 'flex',
         justifyContent: 'flex-end',
         gap: 10
       }
-    }, page === 'flow' && record.stage === 'pending_cleaning' && /*#__PURE__*/React.createElement(Button, {
+    }, hasConversationChanges() && React.createElement(Button,{className:'compare-footer-button',onClick:openOriginalComparison,style:{marginRight:'auto'}},'原始对话对比'), React.createElement('div',{className:'record-review-actions',style:{display:'flex',gap:10}}, page === 'flow' && record.stage === 'pending_cleaning' && /*#__PURE__*/React.createElement(Button, {
       type: "primary",
       disabled: editing >= 0,
-      onClick: () => updateRecordStage(record, 'pending_initial_review', '错别字清洗完成，进入待初审')
+      onClick: completeCleaning
     }, "\u5B8C\u6210\u9519\u522B\u5B57\u6E05\u6D17"), page === 'flow' && record.stage === 'pending_initial_review' && /*#__PURE__*/React.createElement(Tooltip, {
       title: getInitialReviewDisabledReason()
     }, /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement(Button, {
@@ -3439,7 +3545,7 @@ function Workspace() {
     }, "\u7EC8\u5BA1\u4E0D\u901A\u8FC7"), page === 'detail' && record.stage === 'initial_approved' && /*#__PURE__*/React.createElement(Button, {
       type: "primary",
       onClick: () => updateRecordStage(record, 'final_approved', '终审通过，该对话已采用')
-    }, "\u7EC8\u5BA1\u901A\u8FC7"))
+    }, "\u7EC8\u5BA1\u901A\u8FC7")))
   }, /*#__PURE__*/React.createElement("div", {
     className: "conversation"
   }, conversation.map((entry, i) => /*#__PURE__*/React.createElement("div", {

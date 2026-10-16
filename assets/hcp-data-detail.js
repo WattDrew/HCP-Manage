@@ -210,7 +210,11 @@
       nativeChildren.forEach(item => { item.hidden = key !== 'conversation'; });
       Object.entries(panels).forEach(([name, panel]) => panel.classList.toggle('active', name === key));
       const footer = drawer.querySelector('.ant-drawer-footer');
-      if (footer) footer.style.display = key === 'conversation' ? '' : 'none';
+      if (footer) {
+        const actions = footer.querySelector('.record-review-actions');
+        if (actions) actions.style.display = key === 'conversation' ? 'flex' : 'none';
+        footer.style.display = key === 'conversation' || footer.querySelector('.compare-footer-button') ? '' : 'none';
+      }
     };
     logs.onclick = event => {
       const actionButton = event.target.closest('.log-event-action');
