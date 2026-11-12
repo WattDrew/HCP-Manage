@@ -821,6 +821,8 @@ function Workspace() {
   const [filter, setFilter] = useState('active'),
     [search, setSearch] = useState(''),
     [detailTab, setDetailTab] = useState('apis'),
+    [projectSetting, setProjectSetting] = useState({frequencyMode: 'once', days: 7, times: 1}),
+    [projectSettingMode, setProjectSettingMode] = useState('once'),
     [flowTab, setFlowTab] = useState('people'),
     [modal, setModal] = useState(null),
     [record, setRecord] = useState(null),
@@ -938,7 +940,8 @@ function Workspace() {
     [apiEditing, setApiEditing] = useState(null),
     [profileTab, setProfileTab] = useState('personal');
   const [apiForm] = Form.useForm(),
-    [integrationForm] = Form.useForm();
+    [integrationForm] = Form.useForm(),
+    [projectSettingForm] = Form.useForm();
   window.yubeiCollectorTaskStates = ['API-001', 'API-003', 'API-004', 'API-005'].map(apiKey => tasks.find(item => item.apiKey === apiKey)?.state || 'invalid');
   const activeMenu = ['detail', 'form', 'api'].includes(page) ? 'project' : ['flow', 'conversation'].includes(page) ? 'task' : page;
   const labels = {
@@ -983,6 +986,20 @@ function Workspace() {
       peak: selected.target || 1000
     });
     setModal('api');
+  }
+  function openProjectSetting() {
+    projectSettingForm.setFieldsValue(projectSetting);
+    setProjectSettingMode(projectSetting.frequencyMode);
+    setModal('project-setting');
+  }
+  function saveProjectSetting(values) {
+    setProjectSetting({
+      frequencyMode: values.frequencyMode,
+      days: values.frequencyMode === 'window' ? values.days : projectSetting.days,
+      times: values.frequencyMode === 'window' ? values.times : projectSetting.times
+    });
+    setModal(null);
+    message.success('项目设置已更新');
   }
   function generateProjectPlan() {
     const values = form.getFieldsValue(['name', 'owner', 'goal']);
@@ -1573,14 +1590,18 @@ function Workspace() {
   }, {
     title: '操作',
     key: 'action',
-    width: 130,
+    width: 150,
     fixed: 'right',
     render: (_, row) => row.status === 'deleted' ? /*#__PURE__*/React.createElement('span', {
       className: 'empty-value'
     }, '—') : /*#__PURE__*/React.createElement(Space, {
-      size: 4,
+      size: 12,
       className: 'api-actions'
-    }, /*#__PURE__*/React.createElement(Dropdown, {
+    }, /*#__PURE__*/React.createElement(Button, {
+      type: 'link',
+      size: 'small',
+      onClick: () => editApi(row)
+    }, '编辑'), /*#__PURE__*/React.createElement(Dropdown, {
       trigger: ['click'],
       menu: {
         items: apiMenuItems(row),
@@ -1589,7 +1610,7 @@ function Workspace() {
     }, /*#__PURE__*/React.createElement(Button, {
       type: 'link',
       size: 'small'
-    }, '操作')))
+    }, '更多')))
   }];
   const taskColumns = [{
     title: page === 'task' ? '采集接口' : '采集任务',
@@ -2330,6 +2351,9 @@ function Workspace() {
     }, {
       key: 'info',
       label: '项目详情'
+    }, {
+      key: 'settings',
+      label: '项目设置'
     }]
   }), detailTab === 'data' && recordTable(), detailTab === 'apis' && /*#__PURE__*/React.createElement("div", {
     className: "table-wrap",
@@ -2409,6 +2433,26 @@ function Workspace() {
       key: '8',
       label: '创建时间',
       children: selected.date || '暂未填写'
+    }]
+  })), detailTab === 'settings' && /*#__PURE__*/React.createElement("div", {
+    className: "project-settings-panel"
+  }, /*#__PURE__*/React.createElement(Descriptions, {
+    bordered: true,
+    column: 1,
+    items: [{
+      key: 'frequency',
+      label: 'HCP 采集频率限制',
+      children: /*#__PURE__*/React.createElement('div', {
+        className: 'project-setting-value'
+      }, /*#__PURE__*/React.createElement('span', null,
+        projectSetting.frequencyMode === 'once'
+          ? '当前项目不能重复采集'
+          : `指定周期内不能重复采集（${projectSetting.days}天内可采集${projectSetting.times}次）`
+      ), /*#__PURE__*/React.createElement(Button, {
+        type: 'link',
+        size: 'small',
+        onClick: openProjectSetting
+      }, '修改'))
     }]
   })))), page === 'api' && /*#__PURE__*/React.createElement(React.Fragment, null, title('API 管理', '', /*#__PURE__*/React.createElement(Button, {
     type: 'primary',
@@ -3016,6 +3060,50 @@ function Workspace() {
     onChange: setProfileTab,
     items: [{key: 'personal', label: '个人账号信息'}, {key: 'enterprise', label: '企业信息'}, {key: 'login', label: '登录方式'}]
   }), /*#__PURE__*/React.createElement('div', {className: 'profile-panel'}, profileTab === 'personal' ? /*#__PURE__*/React.createElement(Descriptions, {bordered: true, column: 1, items: [{key: 'name', label: '姓名', children: '周新华'}, {key: 'phone', label: '手机号', children: '138****8888'}, {key: 'role', label: '账号角色', children: '管理员'}, {key: 'status', label: '账号状态', children: /*#__PURE__*/React.createElement(Tag, {color: 'success'}, '已启用')} ]}) : profileTab === 'enterprise' ? /*#__PURE__*/React.createElement(Descriptions, {bordered: true, column: 1, items: [{key: 'company', label: '企业名称', children: '上海元采数据服务有限公司'}, {key: 'code', label: '统一社会信用代码', children: '9131**********6X'}, {key: 'type', label: '企业类型', children: '数据采集服务商'}, {key: 'verify', label: '认证状态', children: /*#__PURE__*/React.createElement(Tag, {color: 'success'}, '已认证')} ]}) : /*#__PURE__*/React.createElement(Descriptions, {bordered: true, column: 1, items: [{key: 'mobile', label: '手机号登录', children: /*#__PURE__*/React.createElement(Space, null, '138****8888', /*#__PURE__*/React.createElement(Tag, {color: 'blue'}, '已绑定'))}, {key: 'password', label: '密码', children: /*#__PURE__*/React.createElement(Button, {type: 'link', style: {padding: 0}}, '修改密码')}, {key: 'last', label: '最近登录', children: '2026.09.23 09:42 · 上海'} ]})))), page === 'ai' && /*#__PURE__*/React.createElement(React.Fragment, null, title('元医 AI', '采集端预览 · 模拟移动端对话体验'), /*#__PURE__*/React.createElement(MiniappPreview, null)))), /*#__PURE__*/React.createElement(Modal, {
+    title: '修改 HCP 采集频率限制',
+    open: modal === 'project-setting',
+    onCancel: () => setModal(null),
+    onOk: () => projectSettingForm.submit(),
+    okText: '保存',
+    cancelText: '取消',
+    destroyOnHidden: true
+  }, /*#__PURE__*/React.createElement(Form, {
+    form: projectSettingForm,
+    className: 'project-setting-form',
+    layout: 'horizontal',
+    labelAlign: 'left',
+    labelCol: {flex: '112px'},
+    wrapperCol: {flex: 'auto'},
+    colon: false,
+    onFinish: saveProjectSetting
+  }, /*#__PURE__*/React.createElement(Form.Item, {
+    label: '限制周期',
+    name: 'frequencyMode',
+    rules: [{required: true, message: '请选择限制周期'}]
+  }, /*#__PURE__*/React.createElement(Select, {
+    options: [{value: 'once', label: '当前项目不能重复'}, {value: 'window', label: '指定周期内不能重复'}],
+    onChange: value => setProjectSettingMode(value)
+  })), projectSettingMode === 'window' && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(Form.Item, {
+    label: '周期天数',
+    name: 'days',
+    rules: [{required: true, message: '请输入周期天数'}]
+  }, /*#__PURE__*/React.createElement(InputNumber, {
+    min: 1,
+    max: 365,
+    precision: 0,
+    addonAfter: '天',
+    style: {width: '100%'}
+  })), /*#__PURE__*/React.createElement(Form.Item, {
+    label: '可采集次数',
+    name: 'times',
+    rules: [{required: true, message: '请输入可采集次数'}]
+  }, /*#__PURE__*/React.createElement(InputNumber, {
+    min: 1,
+    max: 999,
+    precision: 0,
+    addonAfter: '次',
+    style: {width: '100%'}
+  }))))), /*#__PURE__*/React.createElement(Modal, {
     title: apiEditing ? '编辑 API' : '生成 API',
     open: modal === 'api',
     onCancel: () => {

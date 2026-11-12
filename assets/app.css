@@ -113,3 +113,17 @@ body>.tenant-more-menu{position:fixed!important;right:auto!important;z-index:120
 /* 创建侧栏：账号信息优先，实名认证位于其后。 */
 .ant-modal-root:has(.tenant-form-grid) .tenant-form-section.account{margin:0 0 20px;padding-top:0;border-top:0}.ant-modal-root:has(.tenant-form-grid) .tenant-form-section.verification{margin:30px 0 20px;padding-top:24px;border-top:1px solid #edf0f3}.ant-modal-root:has(.tenant-form-grid) .tenant-verification-method{display:grid!important;grid-template-columns:138px minmax(0,1fr);column-gap:16px;margin-bottom:18px}.ant-modal-root:has(.tenant-form-grid) .tenant-verification-method>.ant-form-item-label{grid-column:1;grid-row:1;padding:7px 0 0}.ant-modal-root:has(.tenant-form-grid) .tenant-verification-method>.ant-form-item-control{grid-column:2;grid-row:1;min-width:0;padding-top:7px}.ant-modal-root:has(.tenant-form-grid) .tenant-verification-value{color:#344054;font-size:14px;line-height:22px}
 .ant-modal-root:has(.tenant-form-grid) form>.tenant-form-section.verification+.ant-form-item+.tenant-verification-method{display:grid!important}.ant-modal-root:has(.tenant-form-grid) .tenant-company-name{display:block!important}
+.project-settings-panel{padding:24px}
+.project-settings-panel .ant-descriptions-item-label{width:20%;min-width:144px}
+.project-setting-value{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.project-setting-value .ant-btn{flex:none}
+.project-setting-form .ant-form-item{margin-bottom:16px}
+.project-setting-form .ant-form-item-control{min-width:0}
+.project-setting-form .ant-form-item-control-input-content{max-width:240px}
+@media(max-width:760px){
+  .project-settings-panel{padding:16px}
+  .project-settings-panel .ant-descriptions-item-label{min-width:100px}
+  .project-settings-panel .ant-descriptions-row>th,.project-settings-panel .ant-descriptions-row>td{padding:12px}
+  .project-setting-value{flex-wrap:wrap;gap:4px}
+  .project-setting-value .ant-btn{padding-inline:0}
+}
