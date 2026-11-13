@@ -1364,6 +1364,69 @@ function Workspace() {
       }
     });
   }
+  async function exportHcpConversations(person) {
+    const matchingRecords = visibleRecords.filter(item => (
+      item.apiKey === task.apiKey &&
+      (item.hcpKey ? item.hcpKey === person.key : item.name === person.name)
+    ));
+    const rows = matchingRecords.flatMap(item => {
+      const savedConversation = item.conversation || item.originalConversation;
+      const entries = savedConversation || initialConversation.map((text, index) => ({
+        text,
+        sender: index % 2 === 0 ? 'rep' : 'doctor'
+      }));
+      return entries.map((entry, index) => [
+        item.key, person.name, item.time, conversationStatus.collector[item.stage]?.[0],
+        index + 1, entry.sender === 'rep' ? '医药代表' : '医生', entry.text,
+        savedConversation ? '已保存对话' : '演示对话'
+      ]);
+    });
+    if (!rows.length) {
+      message.info('该采集对象在当前接口暂无可导出的对话数据');
+      return;
+    }
+    try {
+      const safeName = person.name.replace(/[<>:"/\\|?*]/g, '_');
+      await downloadConversationWorkbook(`${safeName}-对话数据.xlsx`, [
+        ['记录编号', '采集对象', '对话时间', '数据状态', '消息序号', '发言角色', '对话内容', '内容来源'],
+        ...rows
+      ]);
+      message.success('已导出对话数据');
+    } catch (error) {
+      console.error('导出对话数据失败', error);
+      message.error('导出失败，请重试');
+    }
+  }
+  function hcpCollectionMenu(person) {
+    const items = [{key: 'export', label: '导出数据'}];
+    if (getHcpCollectionStatus(person) !== 'completed') {
+      const disabled = !(person.finalApproved > 0);
+      items.push({
+        key: 'complete',
+        disabled,
+        label: disabled
+          ? React.createElement(Tooltip, {title: '需满足至少有1条终审通过记录'}, '完成')
+          : '完成'
+      });
+    }
+    items.push({key: 'remove', label: '移除', danger: true});
+    return {
+      items,
+      onClick: ({key}) => {
+        if (key === 'export') return exportHcpConversations(person);
+        if (key === 'complete') return completeHcpCollection(person);
+        if (key === 'remove') {
+          Modal.confirm({
+            title: '确认移除该 HCP？',
+            okText: '确定',
+            cancelText: '取消',
+            okButtonProps: {danger: true},
+            onOk: () => removeHcpFromTask(person)
+          });
+        }
+      }
+    };
+  }
   function hasConversationChanges() {
     if (!record) return false;
     const original = record.originalConversation || initialConversation.map((text,i)=>({text,sender:i%2===0?'rep':'doctor'}));
@@ -1962,9 +2025,13 @@ function Workspace() {
     className: `sidebar ${mobile ? 'mobile-open' : ''}`
   }, /*#__PURE__*/React.createElement("div", {
     className: "brand"
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "brand-mark"
-  }, "\u8BED"), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("img", {
+    className: "brand-mark",
+    src: "assets/login-logo.png",
+    width: 34,
+    height: 34,
+    alt: ""
+  }), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "brand-name"
   }, "HCP\u6570\u5B57\u8D44\u4EA7"))), /*#__PURE__*/React.createElement(Menu, {
     theme: "dark",
@@ -2650,37 +2717,19 @@ function Workspace() {
       })
     }, {
       title: '操作',
-      width: 260,
+      width: 132,
       fixed: 'right',
-      render: (_, p) => /*#__PURE__*/React.createElement(Space, {
-        size: 12
-      }, /*#__PURE__*/React.createElement(Button, {
-        type: "link",
-        style: {
-          padding: 0
-        },
-        onClick: () => setDoctorDrawer(p)
-      }, "\u67E5\u770B"), getHcpCollectionStatus(p) !== 'completed' && /*#__PURE__*/React.createElement(Tooltip, {
-        title: p.finalApproved > 0 ? null : '需满足至少有1条终审通过记录'
-      }, /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement(Button, {
-        type: "link",
-        disabled: p.finalApproved < 1,
-        style: {
-          padding: 0
-        },
-        onClick: () => completeHcpCollection(p)
-      }, "\u5B8C\u6210"))), /*#__PURE__*/React.createElement(Popconfirm, {
-        title: "\u786E\u8BA4\u79FB\u9664\u8BE5 HCP\uFF1F",
-        onConfirm: () => removeHcpFromTask(p),
-        okText: "\u786E\u5B9A",
-        cancelText: "\u53D6\u6D88"
-      }, /*#__PURE__*/React.createElement(Button, {
-        type: "link",
-        danger: true,
-        style: {
-          padding: 0
-        }
-      }, "\u79FB\u9664")))
+      render: (_, person) => React.createElement(Space, {size: 12},
+        React.createElement(Button, {
+          type: 'link',
+          style: {padding: 0},
+          onClick: () => setDoctorDrawer(person)
+        }, '查看'),
+        React.createElement(Dropdown, {
+          trigger: ['click'],
+          menu: hcpCollectionMenu(person)
+        }, React.createElement(Button, {type: 'link', style: {padding: 0}}, '更多'))
+      )
     }]
   })) : flowTab === 'data' ? recordTable() : /*#__PURE__*/React.createElement("div", {
     style: {

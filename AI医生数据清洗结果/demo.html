@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI 医生数据工作台</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="demo.css?v=1">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">E</span>
+      <div>
+        <strong>AI 医生数据工作台</strong>
+        <span>Examples &amp; Knowledge</span>
+      </div>
+    </div>
+    <div class="top-status"><span class="status-dot"></span><span>数据已加载</span></div>
+  </header>
+
+  <main class="workspace">
+    <section class="overview" aria-label="数据概览">
+      <div class="overview-copy">
+        <p class="eyebrow">AI 医生行为与知识治理</p>
+        <h1>从对话原料到可控的模型上下文</h1>
+        <p>浏览行为示例、组装 few-shot 上下文，并审查待核验的专业知识候选。</p>
+      </div>
+      <div class="metric-strip" aria-label="数据统计">
+        <div class="metric"><span>行为示例</span><strong id="exampleCount">--</strong></div>
+        <div class="metric"><span>知识候选</span><strong id="knowledgeCount">--</strong></div>
+        <div class="metric"><span>当前已选</span><strong id="selectedCount">0 / 5</strong></div>
+      </div>
+    </section>
+
+    <nav class="tabs" role="tablist" aria-label="数据类型">
+      <button class="tab is-active" type="button" role="tab" aria-selected="true" data-tab="examples">
+        <i data-lucide="messages-square" aria-hidden="true"></i>
+        示例数据
+      </button>
+      <button class="tab" type="button" role="tab" aria-selected="false" data-tab="knowledge">
+        <i data-lucide="book-open-check" aria-hidden="true"></i>
+        专业知识
+      </button>
+    </nav>
+
+    <section id="examplesPanel" class="panel" role="tabpanel">
+      <div class="toolbar">
+        <label class="search-field">
+          <i data-lucide="search" aria-hidden="true"></i>
+          <span class="sr-only">搜索示例</span>
+          <input id="exampleSearch" type="search" placeholder="搜索场景、输入或医生回复">
+        </label>
+        <label class="select-field">
+          <span>对话阶段</span>
+          <select id="stageFilter"><option value="">全部阶段</option></select>
+        </label>
+        <label class="select-field">
+          <span>主题</span>
+          <select id="topicFilter"><option value="">全部主题</option></select>
+        </label>
+        <button id="clearExampleFilters" class="button button-ghost" type="button">
+          <i data-lucide="rotate-ccw" aria-hidden="true"></i><span>重置</span>
+        </button>
+      </div>
+
+      <div class="data-layout">
+        <aside class="record-list" aria-label="示例列表">
+          <div class="list-heading">
+            <span id="exampleResultCount">加载中</span>
+            <span>点击查看详情</span>
+          </div>
+          <div id="exampleList" class="list-items"></div>
+        </aside>
+
+        <article id="exampleDetail" class="detail-pane" aria-live="polite"></article>
+
+        <aside class="context-pane" aria-label="Few-shot 上下文">
+          <div class="context-heading">
+            <div>
+              <span class="section-kicker">本轮组装</span>
+              <h2>Few-shot 上下文</h2>
+            </div>
+            <button id="clearSelection" class="icon-button" type="button" aria-label="清空已选示例" data-tooltip="清空已选">
+              <i data-lucide="trash-2" aria-hidden="true"></i>
+            </button>
+          </div>
+          <p class="context-note">选择 3–5 条行为互补的示例，运行时会转换为 <code>user / assistant</code> 消息。
+          </p>
+          <div id="selectionList" class="selection-list"></div>
+          <button id="previewPrompt" class="button button-primary button-block" type="button" disabled>
+            <i data-lucide="braces" aria-hidden="true"></i><span>预览组装结果</span>
+          </button>
+        </aside>
+      </div>
+    </section>
+
+    <section id="knowledgePanel" class="panel" role="tabpanel" hidden>
+      <div class="toolbar">
+        <label class="search-field">
+          <i data-lucide="search" aria-hidden="true"></i>
+          <span class="sr-only">搜索知识</span>
+          <input id="knowledgeSearch" type="search" placeholder="搜索主题、宣称或核验项">
+        </label>
+        <label class="select-field">
+          <span>知识类型</span>
+          <select id="claimTypeFilter"><option value="">全部类型</option></select>
+        </label>
+        <label class="select-field">
+          <span>审核状态</span>
+          <select id="reviewFilter">
+            <option value="">全部状态</option>
+            <option value="pending_medical_review">待医学审核</option>
+            <option value="approved">已审核</option>
+          </select>
+        </label>
+        <button id="clearKnowledgeFilters" class="button button-ghost" type="button">
+          <i data-lucide="rotate-ccw" aria-hidden="true"></i><span>重置</span>
+        </button>
+      </div>
+
+      <div class="knowledge-layout">
+        <aside class="record-list" aria-label="知识候选列表">
+          <div class="list-heading">
+            <span id="knowledgeResultCount">加载中</span>
+            <span>点击查看核验项</span>
+          </div>
+          <div id="knowledgeList" class="list-items"></div>
+        </aside>
+        <article id="knowledgeDetail" class="detail-pane knowledge-detail" aria-live="polite"></article>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="promptDialog" class="prompt-dialog">
+    <div class="dialog-header">
+      <div>
+        <span class="section-kicker">预览</span>
+        <h2>模型请求中的 Few-shot 片段</h2>
+      </div>
+      <button id="closeDialog" class="icon-button" type="button" aria-label="关闭">
+        <i data-lucide="x" aria-hidden="true"></i>
+      </button>
+    </div>
+    <p>下方仅展示示例部分；实际调用时，前面还需要固定系统提示词和最新会话状态。</p>
+    <pre id="promptPreview"><code></code></pre>
+    <div class="dialog-actions">
+      <button id="copyPrompt" class="button button-primary" type="button">
+        <i data-lucide="copy" aria-hidden="true"></i><span>复制 JSON</span>
+      </button>
+    </div>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+  <script src="demo.js?v=1"></script>
+</body>
+</html>

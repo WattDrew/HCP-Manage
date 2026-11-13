@@ -23,6 +23,16 @@
 
 标签用于选择示例，默认不原样发给模型。运行时按 `stage + representative_intent + doctor_action + topic` 选择 3–5 条互补示例。
 
+### `examples-minimal.jsonl`
+
+是 `examples.jsonl` 去掉管理字段后的精简版，每行只保留：
+
+```json
+{"input":"医药代表说了什么","ideal_response":"AI 医生应该怎么回复","tags":["行为标签"]}
+```
+
+这份文件可以用于不需要场景、来源和审核元数据的 few-shot 实验。管理和筛选仍建议使用完整版 `examples.jsonl`，不要用精简版替代原始数据资产。
+
 ### `knowledge_candidates.jsonl`
 
 用于医学知识候选库，教模型“事实是什么”。当前内容只是从对话中抽取的宣称，不是已核验医学事实。
