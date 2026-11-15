@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48" role="img" aria-label="专项采集">
+  <defs>
+    <linearGradient id="collection-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#53BBF8"/>
+      <stop offset="1" stop-color="#2978E6"/>
+    </linearGradient>
+  </defs>
+  <rect width="48" height="48" rx="16" fill="url(#collection-bg)"/>
+  <g fill="#F5FAFF">
+    <path d="M21 14.5c0-2.5 3.6-4.5 8-4.5s8 2 8 4.5-3.6 4.5-8 4.5c-4.5 0-8-2-8-4.5Z"/>
+    <path d="M37 17.6v3.2c0 2.4-3.5 4.3-8 4.3h-.2v-1.5a5.4 5.4 0 0 0-1-2.9l1.2.1c3.4 0 6.3-1.1 8-3.2Zm0 6.2V27c0 2.5-3.6 4.5-8 4.5h-.2v-4.6h.2c3.4 0 6.3-1.1 8-3.1Z"/>
+    <ellipse cx="19" cy="24" rx="8" ry="4.5"/>
+    <path d="M11 27.1c1.7 1.9 4.6 3.1 8 3.1s6.3-1.2 8-3.1v2.8c0 2.5-3.6 4.5-8 4.5s-8-2-8-4.5v-2.8Zm0 6c1.7 1.9 4.6 3.1 8 3.1s6.3-1.2 8-3.1v1.7c0 2.5-3.6 4.5-8 4.5s-8-2-8-4.5v-1.7Z"/>
+  </g>
+</svg>

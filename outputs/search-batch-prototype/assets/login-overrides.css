@@ -1,0 +1,45 @@
+.login-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.login-card-head h1 {
+  margin: 0;
+  font-size: 27px;
+}
+
+.login-logo {
+  display: block;
+  flex: none;
+  border-radius: 15px;
+}
+
+.login-tabs {
+  justify-content: center;
+}
+
+.login-tabs button {
+  min-height: 36px;
+}
+
+.login-form input::placeholder {
+  color: #8a94a6;
+  opacity: 1;
+}
+
+/* Both forms size the same grid cell, so switching leaves the card in place. */
+.login-forms {
+  display: grid;
+}
+
+.login-forms .login-form {
+  display: block;
+  grid-area: 1 / 1;
+  visibility: hidden;
+}
+
+.login-forms .login-form.active {
+  visibility: visible;
+}
