@@ -953,6 +953,7 @@ function Workspace() {
     setting: '系统设置',
     profile: '用户中心',
     tenant: '采集租户管理',
+    enterprise: '企业采集数据',
     api: 'API 管理',
     ai: '元医 AI',
     detail: '项目详情',
@@ -1868,6 +1869,11 @@ function Workspace() {
     return records.filter(item => item.name === name && getConversationStatus(item, 'collector')).sort((a, b) => b.time.localeCompare(a.time))[0];
   }
   function recordTable() {
+    if (page === 'detail') return React.createElement(window.DemandDataViews.Dataset, {
+      records:visibleRecords, filter:datasetReviewFilter, onFilter:setDatasetReviewFilter, onView:openRecord,
+      resolveApi:record=>apis.find(api=>api.key===record.apiKey)?.name || '—',
+      renderPerson:()=>React.createElement(Person,{name:'张三',sub:'医药代表'}), pagination, scopeKey:selected.key
+    });
     const sourceRecords = page === 'flow' ? visibleRecords.filter(item => item.apiKey === task.apiKey && ['initial_approved', 'final_approved'].includes(item.stage)) : visibleRecords;
     const reviewRecords = sourceRecords.filter(item => getConversationStatus(item, page === 'detail' ? 'demand' : 'collector'));
     const filteredRecords = page === 'detail' && datasetReviewFilter !== 'all' ? reviewRecords.filter(item => item.stage === datasetReviewFilter) : reviewRecords;
@@ -2089,13 +2095,17 @@ function Workspace() {
       }]
     }, {
       type: 'group',
-      label: '客户端',
+      label: 'HCP数据采集管理',
       children: [{
         key: 'tenant',
         icon: /*#__PURE__*/React.createElement(Icon, {
           name: "setting"
         }),
         label: '采集租户管理'
+      }, {
+        key: 'enterprise',
+        icon: React.createElement(Icon, {name: 'data'}),
+        label: '企业采集数据'
       }]
     }, {
       type: 'group',
@@ -2142,7 +2152,7 @@ function Workspace() {
     className: "username"
   }, "\u5468\u65B0\u534E"))), /*#__PURE__*/React.createElement(Content, {
     className: `content ${page === 'ai' ? 'content-ai' : ''}`
-  }, page === 'training' && /*#__PURE__*/React.createElement(React.Fragment, null, title('训练 E 人', '管理用于训练的 E 人能力与版本。'), /*#__PURE__*/React.createElement(Card, {
+  }, page === 'enterprise' && React.createElement(window.EnterpriseData, {message}), page === 'training' && /*#__PURE__*/React.createElement(React.Fragment, null, title('训练 E 人', '管理用于训练的 E 人能力与版本。'), /*#__PURE__*/React.createElement(Card, {
     className: "table-card"
   }, /*#__PURE__*/React.createElement(Empty, {
     className: "empty-module",
@@ -2434,22 +2444,10 @@ function Workspace() {
     scroll: {
       x: 1320
     }
-  })), detailTab === 'analysis' && /*#__PURE__*/React.createElement("div", {
-    className: "analysis-grid"
-  }, /*#__PURE__*/React.createElement(Card, {
-    title: "\u7EC8\u5BA1\u901A\u8FC7\u7387"
-  }, /*#__PURE__*/React.createElement(Progress, {
-    type: "circle",
-    percent: Math.round(records.filter(r => r.stage === 'final_approved').length / records.filter(r => getConversationStatus(r, 'demand')).length * 100)
-  })), /*#__PURE__*/React.createElement(Card, {
-    title: "\u5BF9\u8BDD\u8F6E\u6B21"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "stat-number"
-  }, records.reduce((a, b) => a + b.turns, 0), /*#__PURE__*/React.createElement("span", {
-    className: "stat-unit"
-  }, "\u8F6E")), /*#__PURE__*/React.createElement("p", {
-    className: "subtitle"
-  }, "\u5E73\u5747 ", Math.round(records.reduce((a, b) => a + b.turns, 0) / records.length), " \u8F6E / \u6761"))), detailTab === 'info' && /*#__PURE__*/React.createElement("div", {
+  })), detailTab === 'analysis' && React.createElement(window.DemandDataViews.Analysis, {
+    current:selected.current, target:selected.target,
+    approved:Math.round(selected.current * records.filter(r=>r.stage==='final_approved').length / Math.max(1,records.filter(r=>getConversationStatus(r,'demand')).length))
+  }), detailTab === 'info' && /*#__PURE__*/React.createElement("div", {
     style: {
       padding: 24
     }

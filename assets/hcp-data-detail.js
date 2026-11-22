@@ -7,6 +7,7 @@
   let audioTimer = null;
 
   function reasonFor(meta) {
+    if (meta.readOnly) return meta.rejectionReason || '';
     const stage = meta.status === '初审未通过' ? 'initial_rejected' : meta.status === '终审未通过' ? 'final_rejected' : '';
     return reviewReasons[`${meta.name}:${meta.status}`] || (stage ? localStorage.getItem(`hcp-rejection-${stage}`) : '') || reasons[meta.status] || '';
   }
@@ -19,9 +20,11 @@
   function getRecordMeta(drawer) {
     const doctorRow = Array.from(drawer.querySelectorAll('.message-row')).find(row => !row.classList.contains('right'));
     const name = (doctorRow?.querySelector('.message-label')?.textContent || '张医生').replace(' · 医生', '');
-    const status = drawer.querySelector('.ant-drawer-extra .ant-tag')?.textContent.trim() || '';
-    const isDemand = selectedSide() === 'demand';
-    return { name, status, isDemand };
+    const status = drawer.querySelector('.conversation')?.dataset.recordStatus || drawer.querySelector('.ant-drawer-extra .ant-tag')?.textContent.trim() || '';
+    const conversation = drawer.querySelector('.conversation');
+    const readOnly = conversation?.dataset.readOnly === 'true';
+    const isDemand = conversation?.dataset.viewSide === 'demand' || selectedSide() === 'demand';
+    return { name, status, isDemand, readOnly, rejectionReason: conversation?.dataset.rejectionReason || '' };
   }
 
   function audioControl(speaker, duration) {
@@ -174,7 +177,7 @@
 
   function enhanceDrawer(drawer) {
     if (drawer.dataset.hcpEnhanced) return;
-    const body = drawer.querySelector('.ant-drawer-body');
+    const body = drawer.querySelector('.tag-native-body') || drawer.querySelector('.ant-drawer-body');
     const title = drawer.querySelector('.ant-drawer-title')?.textContent || '';
     if (!body || !['数据详情', '对话审核'].some(text => title.includes(text))) return;
     const conversation = body.querySelector('.conversation');
