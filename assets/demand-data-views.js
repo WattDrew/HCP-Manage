@@ -1,12 +1,24 @@
 /* Shared demand-side presentation, also used by the read-only enterprise viewer. */
 window.DemandDataViews = (() => {
   const h=React.createElement;
-  const {Table,Tag,Button,Space,Checkbox,Input,Select,Modal,Alert}=antd;
+  const {Table,Tag,Button,Space,Checkbox,Input,Select,Modal,Alert,Empty}=antd;
   const states={initial_approved:['待审核','warning'],final_rejected:['终审未通过','error'],final_approved:['终审通过','success']};
-  function Dataset({records,filter,onFilter,onView,resolveApi,renderPerson,pagination,scopeKey,tagDetail=false,actionsHost}){
+  function Dataset({records,filter,onFilter,onView,resolveApi,renderPerson,pagination,scopeKey,tagDetail=false,actionsHost,onManageTags}){
     const T=window.DataTagging; T.useStore();
     const [batch,setBatch]=React.useState(false),[selected,setSelected]=React.useState([]),[search,setSearch]=React.useState(''),[tagSearch,setTagSearch]=React.useState(''),[tagState,setTagState]=React.useState('all'),[library,setLibrary]=React.useState(false),[detail,setDetail]=React.useState(null);
+    const [specifiedOpen,setSpecifiedOpen]=React.useState(false),[pickedTags,setPickedTags]=React.useState([]),[pickerSearch,setPickerSearch]=React.useState('');
     const scope=String(scopeKey);
+    React.useEffect(()=>{setSpecifiedOpen(false);setPickedTags([]);setPickerSearch('');},[scope]);
+    const tagId=(group,label)=>JSON.stringify([group,label]);
+    const labelGroups=T.getTaxonomy(scope).map(([,group,labels])=>({group,labels:[...new Set([...labels,...records.flatMap(r=>T.get(scope,r).tags.filter(t=>t.group===group).map(t=>t.label))])]}));
+    const allLabels=labelGroups.flatMap(({group,labels})=>labels.map(label=>({group,label,id:tagId(group,label)})));
+    const shownGroups=labelGroups.map(({group,labels})=>({group,labels:labels.filter(label=>!pickerSearch.trim()||group.includes(pickerSearch.trim())||label.includes(pickerSearch.trim()))})).filter(item=>item.labels.length);
+    const openSpecified=()=>{setPickedTags([]);setPickerSearch('');setSpecifiedOpen(true);};
+    const startSpecified=()=>{
+      if(!pickedTags.length||!eligible.length)return;
+      T.start(scope,eligible,true,false,allLabels.filter(t=>pickedTags.includes(t.id)));
+      setSpecifiedOpen(false);setSelected([]);setBatch(false);
+    };
     React.useEffect(()=>{setBatch(false);setSelected([]);setDetail(null);setSearch('');setTagSearch('');setTagState('all');},[scope]);
     React.useEffect(()=>setSelected([]),[filter,search,tagState,tagSearch]);
     const inspect=r=>tagDetail?setDetail(r):onView(r);
@@ -28,14 +40,25 @@ window.DemandDataViews = (() => {
       {title:'操作',width:160,fixed:'right',render:(_,r)=>h(Space,null,h(Button,{type:'link',style:{padding:0},onClick:()=>inspect(r)},'查看'),T.get(scope,r).status!=='done'&&h(Button,{type:'link',style:{padding:0},loading:T.get(scope,r).status==='running',onClick:()=>run([r])},'AI 打标'))}
     ];
     const allSelected=filtered.length>0&&filtered.every(r=>selected.includes(r.key||r.id));
-    const actions=h('div',{className:'tag-toolbar-actions'},!tagDetail&&h(Button,{onClick:()=>setLibrary(true)},'标签体系'),batch?h(React.Fragment,null,h('span',{className:'tag-selected-count'},`已选 ${selected.length} 条`),h(Button,{onClick:()=>{setSelected([]);setBatch(false);}},'取消'),h(Button,{disabled:!filtered.length,onClick:()=>setSelected(allSelected?[]:filtered.map(r=>r.key||r.id))},allSelected?'取消全选':'全选'),h(Button,{type:'primary',disabled:!eligible.length,onClick:()=>run(eligible)},'AI 打标')):h(Button,{disabled:!filtered.length,onClick:()=>{setBatch(true);setSelected([]);}},'批量操作'));
+    const actions=h('div',{className:'tag-toolbar-actions'},!tagDetail&&h(Button,{onClick:()=>setLibrary(true)},'标签体系'),batch?h(React.Fragment,null,h('span',{className:'tag-selected-count'},`已选 ${selected.length} 条`),h(Button,{onClick:()=>{setSelected([]);setBatch(false);}},'取消'),h(Button,{disabled:!filtered.length,onClick:()=>setSelected(allSelected?[]:filtered.map(r=>r.key||r.id))},allSelected?'取消全选':'全选'),h(Button,{disabled:!eligible.length,onClick:openSpecified},'指定标签打标'),h(Button,{type:'primary',disabled:!eligible.length,onClick:()=>run(eligible)},'AI 打标')):h(Button,{disabled:!filtered.length,onClick:()=>{setBatch(true);setSelected([]);}},'批量操作'));
     return h('div',{className:'table-wrap task-flow-table record-data-table',style:{paddingTop:20}},
       h('div',{className:'tag-list-toolbar'},h(Input,{allowClear:true,placeholder:'搜索采集对象',value:search,onChange:e=>setSearch(e.target.value),style:{width:215}}),h(Select,{'aria-label':'数据状态筛选',value:filter,onChange:onFilter,options,style:{width:160}}),h(Input,{'aria-label':'标签搜索',allowClear:true,placeholder:'搜索标签，多个用顿号或空格分隔',title:'多个标签需同时匹配，支持部分文字搜索',value:tagSearch,onChange:e=>setTagSearch(e.target.value),style:{width:300}}),h(Select,{value:tagState,onChange:setTagState,style:{width:140},options:[{value:'all',label:'全部打标状态'},{value:'none',label:'未打标'},{value:'running',label:'打标中'},{value:'done',label:'已打标'},{value:'failed',label:'打标失败'}]}),!tagDetail&&actions),
       actionsHost&&ReactDOM.createPortal(actions,actionsHost),
       running>0&&h(Alert,{type:'info',showIcon:true,message:`正在为 ${running} 条数据生成标签，可继续浏览页面。`}),
+      h(Modal,{title:'指定标签打标',open:specifiedOpen,width:760,onCancel:()=>setSpecifiedOpen(false),onOk:startSpecified,okText:'确认并开始 AI 打标',cancelText:'取消',okButtonProps:{disabled:!pickedTags.length||!eligible.length}},
+        h('div',{style:{display:'flex',gap:16,alignItems:'center',marginBottom:16}},
+          h(Input,{allowClear:true,'aria-label':'搜索可选标签',placeholder:'搜索标签或分类',value:pickerSearch,onChange:e=>setPickerSearch(e.target.value)}),
+          h(Button,{disabled:!allLabels.length,onClick:()=>setPickedTags(pickedTags.length===allLabels.length?[]:allLabels.map(t=>t.id))},pickedTags.length===allLabels.length&&allLabels.length?'取消全选':'全选')),
+        h('div',{style:{marginBottom:16,color:'#667085'}},`已选 ${pickedTags.length} / ${allLabels.length} 个标签`),
+        h('div',{style:{maxHeight:420,overflowY:'auto',paddingRight:8}},shownGroups.length?shownGroups.map(({group,labels})=>h('section',{key:group,style:{marginBottom:20}},
+          h('h4',{style:{margin:'0 0 12px'}},group),
+          h('div',{style:{display:'flex',gap:'8px 8px',flexWrap:'wrap'}},labels.map(label=>{
+            const id=tagId(group,label),active=pickedTags.includes(id);return h(Button,{key:id,'aria-pressed':active,type:active?'primary':'default',onClick:()=>setPickedTags(previous=>previous.includes(id)?previous.filter(value=>value!==id):[...previous,id])},label);
+          })))):h(Empty,{description:'暂无可选标签'})),
+        ),
       h(Table,{key:`${scopeKey}-${filter}`,rowKey:r=>r.key||r.id,columns,dataSource:filtered,rowSelection:batch?{selectedRowKeys:selected,onChange:setSelected,preserveSelectedRowKeys:true}:undefined,
         pagination:pagination||{pageSize:5,showSizeChanger:false,showTotal:n=>`共 ${n} 条`},scroll:{x:1370},
-        locale:{emptyText:'暂无符合条件的数据'}}),h(T.Library,{scope,open:library,onClose:()=>setLibrary(false)}),detail&&h(T.Detail,{key:scope+String(detail.key||detail.id),scope,record:detail,records:visible,onClose:()=>setDetail(null)}));
+        locale:{emptyText:'暂无符合条件的数据'}}),h(T.Library,{scope,open:library,onClose:()=>setLibrary(false)}),detail&&h(T.Detail,{key:scope+String(detail.key||detail.id),scope,record:detail,records:visible,onClose:()=>setDetail(null),onManageTags}));
   }
   function Analysis({current,target,approved}){
     const collected=Math.max(0,Number(current)||0), goal=Math.max(0,Number(target)||0);

@@ -1,0 +1,51 @@
+const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),assert=require('node:assert/strict'),cp=require('node:child_process');
+const root=path.resolve(__dirname,'../..'),read=p=>fs.readFileSync(path.join(root,p),'utf8');
+const html=read('index.html'), app=read('assets/app.js');
+assert.ok(html.indexOf('assets/screening.js')<html.indexOf('assets/app.js'));
+assert.ok(app.includes("const [page, setPage] = useState('project')"));
+assert.ok(app.includes("[detailTab, setDetailTab] = useState('apis')"));
+assert.ok(read('outputs/ai-screening-demo/index.html').includes("window.location.replace('../../index.html'"));
+assert.ok(!html.includes('outputs/'));
+let slots=[],cursor=0;const values=new Map(),timers=[];
+const component=name=>Object.assign(function(){},{displayName:name});
+const antd=Object.fromEntries(['Button','Descriptions','Modal','Form','InputNumber','Switch','Tag','Space','Select','Input','Alert','Empty','Tabs','Drawer','Popover','Progress','Checkbox'].map(n=>[n,component(n)]));
+antd.Form.Item=component('Form.Item');antd.Form.useForm=()=>[{setFieldsValue(){},submit(){}}];
+antd.message={success(){},info(){},warning(){},error(){}};antd.App={useApp:()=>({message:antd.message})};
+const context={window:{},React:{memo:f=>f,createElement:(type,props,...children)=>({type,props:props||{},children}),Fragment:component('Fragment'),useState:initial=>{const i=cursor++;if(!(i in slots))slots[i]=typeof initial==='function'?initial():initial;return[slots[i],v=>{slots[i]=typeof v==='function'?v(slots[i]):v;}];},useEffect(){}},antd,localStorage:{getItem:k=>values.get(k)||null,setItem:(k,v)=>values.set(k,v)},setTimeout:f=>{timers.push(f);return timers.length;},initialConversation:['您好','我关注安全性和研究证据'],document:{},Date};
+vm.createContext(context);vm.runInContext(read('assets/screening.js'),context);
+const render=()=>{cursor=0;return context.window.ScreeningSettings({projectId:'p1',frequency:{frequencyMode:'once'}});};
+const nodes=n=>!n||typeof n!=='object'?[]:[n,...(n.children||[]).flat(Infinity).flatMap(nodes)];
+const find=(tree,type,predicate=()=>true)=>{const n=nodes(tree).find(n=>n.type?.displayName===type&&predicate(n));assert.ok(n,`Missing ${type}`);return n;};
+let tree=render();assert.ok(JSON.stringify(tree).includes('20 轮'));
+find(tree,'Form').props.onFinish({minTurns:25,minDoctorChars:600});slots=[];tree=render();assert.ok(JSON.stringify(tree).includes('25 轮'));
+const rules=find(tree,'Form.Item').props.rules;
+(async()=>{
+ await rules[1].validator(null,25);
+ for(const value of [0,-1,1.5,null])await assert.rejects(rules[1].validator(null,value));
+ assert.equal(context.window.ReviewSettings.autoApprove('p1'),false);
+ find(tree,'Modal',n=>n.props.title==='修改审核设置').props.onOk();assert.equal(context.window.ReviewSettings.autoApprove('p1'),false);
+ find(tree,'Switch').props.onChange(true);tree=render();find(tree,'Modal',n=>n.props.title==='修改审核设置').props.onOk();
+ assert.equal(context.window.ReviewSettings.autoApprove('p1'),true);assert.equal(context.window.ReviewSettings.autoApprove('p2'),false);
+ const start=app.indexOf('  function updateRecordStage('),end=app.indexOf('  function getInitialReviewDisabledReason',start);
+ vm.runInContext(app.slice(start,end),context);
+ for(const automatic of [false,true]){
+  values.set('yubei-review-demo:p1',JSON.stringify({autoFinalApprove:automatic}));
+  Object.assign(context,{records:[{key:'r1',name:'医生',apiKey:'api1'}],apis:[{key:'api1',project:'p1'}],tasks:[],conversation:[],message:antd.message,setRecord(){},setRecords:rows=>{context.records=rows;},people:[{name:'医生',initialApproved:0,finalApproved:0,pendingFinal:0}],setPeople:fn=>{context.people=fn(context.people);}});
+  context.updateRecordStage(context.records[0],'initial_approved','通过');
+  assert.equal(context.records[0].stage,automatic?'final_approved':'initial_approved');
+  assert.equal(context.people[0].pendingFinal,automatic?0:1);assert.equal(context.people[0].finalApproved,automatic?1:0);assert.equal(context.people[0].initialApproved,1);
+ }
+ vm.runInContext(read('assets/data-tagging.js'),context);
+ let T=context.window.DataTagging;const record={id:'r2'};T.start('p1',[record]);timers.splice(0).forEach(f=>f());
+ const key=JSON.stringify(['p1','r2']),saved=JSON.parse(values.get('hcp-annotations-v1'));
+ saved[key].tags.push({group:'医生关注偏好',label:'自定义',source:'人工'});values.set('hcp-annotations-v1',JSON.stringify(saved));
+ vm.runInContext(read('assets/data-tagging.js'),context);T=context.window.DataTagging;
+ T.start('p1',[record],true,false,[{group:'医生关注偏好',label:'关注安全性'}]);timers.splice(0).forEach(f=>f());
+ const tags=T.get('p1',record).tags;assert.ok(tags.some(t=>t.label==='自定义'&&t.source==='人工'));assert.ok(tags.some(t=>t.label==='关注证据'));assert.equal(tags.filter(t=>t.label==='关注安全性').length,1);
+ // Confirm the old enterprise harness already fails with the committed sources.
+ const oldTest=read('outputs/enterprise-data/verify.cjs');
+ const fakeFs={readFileSync:p=>cp.execFileSync('git',['show',`HEAD:${path.relative(root,p).replaceAll('\\','/')}`],{cwd:root,encoding:'utf8'})};
+ const baseline={require:n=>n==='node:fs'?fakeFs:require(n),__dirname:path.join(root,'outputs/enterprise-data'),console};
+ assert.throws(()=>vm.runInNewContext(oldTest,baseline),/Library/);
+ console.log('PASS: main entry/load order, legacy redirect, screening persistence and validation, project review settings, both review paths and counters, selected tagging preserves other/manual tags. Old enterprise harness failure also reproduced on HEAD.');
+})().catch(error=>{console.error(error);process.exitCode=1;});

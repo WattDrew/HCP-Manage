@@ -1,3 +1,18 @@
+# 已合并到主页面
+
+2026-11-23：本目录新增功能已合并至工作区根目录 `index.html`，后续统一维护根目录入口和 `assets/` 中的实现。
+
+- 原 demo 入口 `outputs/ai-screening-demo/index.html` 自动跳转至 `../../index.html`。
+- AI 初筛标准、审核设置及自动终审：`assets/screening.js`、`assets/app.js`。
+- 指定标签打标及详情标签选择：`assets/data-tagging.js`、`assets/demand-data-views.js`。
+- 主页面仍默认打开项目列表。
+- 本目录原有 JS 和截图仅作为历史参考，页面不再加载本目录 JS；请勿继续修改这些副本来开发功能。
+- 保留原有浏览器存储键；不同 file:// 路径间的存储可见性由浏览器决定。
+
+---
+
+以下为原 demo 说明，保留供参考。
+
 # AI 初筛标准交互 demo
 
 入口：`index.html`。沿用现有语贝工作台界面，默认打开「眼科数据采集项目 → 项目设置」。

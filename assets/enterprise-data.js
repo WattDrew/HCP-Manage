@@ -66,6 +66,11 @@ window.EnterpriseData = (() => {
     const [actionsHost,setActionsHost] = useState(null);
     const [tagLibrary,setTagLibrary] = useState(false);
     useEffect(()=>{
+      const target=new URLSearchParams(window.location.search).get('tagManagementProject');
+      const found=projects.find(p=>p.id===target&&saved.ids.includes(p.enterprise)&&canView(p.enterprise));
+      if(found){setSaved(current=>({...current,selected:found.enterprise}));setProjectId(found.id);setTab('analysis');setTagLibrary(true);}
+    },[]);
+    useEffect(()=>{
       const onStorage=e=>{if(e.key===STORAGE || e.key===null){setSaved(readSaved());resetView();}};
       window.addEventListener('storage',onStorage);
       return ()=>window.removeEventListener('storage',onStorage);
@@ -113,7 +118,7 @@ window.EnterpriseData = (() => {
     let detailContent;
     if(project){
       if(tab==='data')detailContent=h(window.DemandDataViews.Dataset,{
-        tagDetail:true, actionsHost, records, filter:dataFilter, onFilter:setDataFilter, onView:r=>setInspected({kind:'data',id:r.id}),
+        tagDetail:true, actionsHost, records, filter:dataFilter, onFilter:setDataFilter, onView:r=>setInspected({kind:'data',id:r.id}),onManageTags:()=>window.DataTagging.openManagement(project.id),
         resolveApi:r=>r.api, renderPerson:r=>h(Person,{name:r.collector,sub:'医药代表'}),scopeKey:project.id
       });
       if(tab==='analysis')detailContent=h(React.Fragment,null,h(window.DemandDataViews.Analysis,{
@@ -136,7 +141,7 @@ window.EnterpriseData = (() => {
       h(React.Fragment,null,
         h('div',{className:'page-heading enterprise-project-heading'},h(Space,null,h(Button,{icon:h(Icon,{name:'arrow'}),'aria-label':'返回企业项目列表',onClick:()=>{setProjectId(null);setInspected(null);}}),h('h2',null,project.name),status(project.state)),tab==='data'&&h('div',{className:'enterprise-project-actions',ref:setActionsHost})),
         h(Card,{className:'table-card'},h(Tabs,{activeKey:tab,onChange:key=>{setTab(key);setInspected(null);},items:[{key:'data',label:'数据集'},{key:'analysis',label:'数据分析'}]}),detailContent)),
-      h(window.DataTagging.Library,{scope:project?.id,open:tagLibrary,onClose:()=>setTagLibrary(false)}),
+      h(window.DataTagging.Library,{editor:true,scope:project?.id,open:tagLibrary,onClose:()=>setTagLibrary(false)}),
       h(Modal,{title:'添加企业',open,onCancel:()=>setOpen(false),onOk:add,okText:match&&saved.ids.includes(match.id)?'切换到该企业':'确认添加',okButtonProps:{disabled:!match},cancelText:'取消'},
         h('label',{htmlFor:'enterprise-id-input',className:'enterprise-field-label'},'企业 ID'),
         h(Space.Compact,{style:{width:'100%'}},h(Input,{id:'enterprise-id-input',value:input,maxLength:64,placeholder:'请输入完整企业 ID',onPressEnter:query,onChange:e=>{setInput(e.target.value);setMatch(null);setError('');}}),h(Button,{onClick:query},'查询')),

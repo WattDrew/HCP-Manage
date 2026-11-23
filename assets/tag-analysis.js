@@ -56,25 +56,16 @@ window.TagCoverage = (() => {
     const mapGroups=groupNames.map(name=>({name,tags:sortTags(fullRows.filter(t=>t.group===name),sort,T.getTaxonomy(scope).find(([,g])=>g===name)?.[2]||[])})).filter(g=>g.tags.length||(!query.trim()&&category==='all'&&coverageFilter==='all'));
     const selectedTag=stats.allTags.find(t=>t.key===tagKey);
     const matched=selectedTag?records.filter(r=>selectedTag.recordIds.includes(String(r.key||r.id))):[];
-    const columns=[
-      {title:'标签',dataIndex:'label',width:170,render:(v,r)=>h('span',{className:'tag-analysis-name'},v,r.count===0&&h(Tag,{color:'default'},'未覆盖'))},
-      {title:'所属分类',dataIndex:'group',width:145},
-      {title:'覆盖数据',dataIndex:'count',width:115,sorter:(a,b)=>a.count-b.count,render:n=>`${n} 条`},
-      {title:'覆盖率',width:180,sorter:(a,b)=>a.count-b.count,render:(_,r)=>h('div',{className:'tag-table-rate'},h('div',null,h('span',{style:{width:ratio(r.count,stats.total)+'%'}})),h('span',null,ratio(r.count,stats.total)+'%'))},
-      {title:'AI 打标',dataIndex:'ai',width:105,sorter:(a,b)=>a.ai-b.ai,render:n=>h('span',{className:'tag-count-ai'},`${n} 条`)},
-      {title:'手动打标',dataIndex:'manual',width:110,sorter:(a,b)=>a.manual-b.manual,render:n=>h('span',{className:'tag-count-manual'},`${n} 条`)},
-      {title:'操作',width:100,fixed:'right',render:(_,r)=>h(Button,{type:'link',size:'small',disabled:!r.count,onClick:()=>setTagKey(r.key)},'查看数据')}
-    ];
+
 
     return h('section',{className:'tag-coverage'},
-      h('section',{className:'tag-analysis-module'},h('header',{className:'tag-module-heading'},h('h3',null,'标签覆盖图'),onEditSchema&&h(Button,{onClick:onEditSchema},'编辑标签体系')),
+      h('section',{className:'tag-analysis-module'},h('header',{className:'tag-module-heading'},h('h3',null,'标签覆盖图'),onEditSchema&&h(Button,{onClick:onEditSchema},'标签管理')),
         h('div',{className:'tag-chart-card tag-map-card'},
         h('div',{className:'tag-map-legend','aria-label':'覆盖数量图例'},[['zero','未覆盖'],['one','1 条'],['two','2 条'],['many','3 条及以上']].map(([band,label])=>h('span',{key:band,className:band},h('i',null),label))),
         h('div',{className:'tag-all-toolbar tag-map-toolbar'},h(Input,{'aria-label':'搜索覆盖图标签',allowClear:true,placeholder:'搜索标签，多个用顿号或空格分隔',title:'多个关键词匹配任一标签',value:query,onChange:e=>setQuery(e.target.value),style:{width:300}}),h(Select,{'aria-label':'覆盖图分类',value:category,onChange:setCategory,style:{width:175},options:[{label:'全部分类',value:'all'},...groupNames.map(name=>({label:name,value:name}))]}),h(Select,{'aria-label':'覆盖图排序',value:sort,onChange:setSort,style:{width:180},options:[{label:'默认',value:'default'},{label:'覆盖数从高到低',value:'desc'},{label:'覆盖数从低到高',value:'asc'}]}),h(Checkbox,{checked:coverageFilter==='zero',onChange:e=>setCoverageFilter(e.target.checked?'zero':'all')},'只看未覆盖')),
         mapGroups.length?h('div',{className:'tag-map-groups'},mapGroups.map(g=>h('section',{className:'tag-map-group',key:g.name},h('h5',null,g.name),h('div',{className:'tag-map-cells'},g.tags.length?g.tags.map(t=>h('button',{type:'button',key:t.key,className:`tag-map-cell ${coverageBand(t.count)}`,'aria-label':`${g.name} / ${t.label}，覆盖 ${t.count} 条数据`,title:`${g.name} / ${t.label}：${t.count} / ${stats.total} 条，AI ${t.ai} 条，手动 ${t.manual} 条`,onClick:()=>setTagKey(t.key)},h('span',null,t.label),h('b',null,t.count))):h('small',{className:'tag-map-empty'},'暂无预设或已提取标签'))))):h(Empty,{image:Empty.PRESENTED_IMAGE_SIMPLE,description:coverageFilter==='zero'?'当前筛选范围没有未覆盖标签':'暂无符合条件的标签'}))),
-        h('section',{className:'tag-analysis-module'},h('header',{className:'tag-module-heading'},h('h3',null,'标签分析明细')),h('div',{className:'tag-chart-card tag-all-analysis tag-map-details'},h(Table,{size:'small',rowKey:'key',columns,dataSource:mapGroups.flatMap(group=>group.tags),scroll:{x:925},pagination:{pageSize:10,showSizeChanger:true,pageSizeOptions:[10,20,50],showTotal:n=>`共 ${n} 个标签`},locale:{emptyText:'暂无符合条件的标签'}}))),
       h(Modal,{title:selectedTag?'标签分析 · '+selectedTag.label:'标签分析',open:!!selectedTag,width:780,onCancel:()=>setTagKey(null),footer:h(Button,{onClick:()=>setTagKey(null)},'关闭')},selectedTag&&h('div',null,h('p',{className:'tag-chart-note'},`${selectedTag.group} · 覆盖 ${selectedTag.count} / ${stats.total} 条数据（${ratio(selectedTag.count,stats.total)}%）`),h('div',{className:'tag-single-source'},h('span',{className:'tag-count-ai'},`AI 打标 ${selectedTag.ai} 条`),h('span',{className:'tag-count-manual'},`手动打标 ${selectedTag.manual} 条`)),h(Table,{size:'small',rowKey:r=>r.key||r.id,dataSource:matched,locale:{emptyText:'暂无数据覆盖该标签'},pagination:{pageSize:5,showSizeChanger:false},columns:[{title:'采集对象',dataIndex:'name'},{title:'数据编号',render:(_,r)=>r.key||r.id},{title:'采集时间',dataIndex:'time'},{title:'操作',render:(_,r)=>h(Button,{type:'link',onClick:()=>{setTagKey(null);setInspected(r);}},'查看')}]}))),
-      inspected&&h(T.Detail,{key:String(inspected.key||inspected.id),scope,record:inspected,records,onClose:()=>setInspected(null)}));
+      inspected&&h(T.Detail,{key:String(inspected.key||inspected.id),scope,record:inspected,records,onClose:()=>setInspected(null),onManageTags:()=>T.openManagement(scope)}));
   }
   return {summarize,coverageBand,sortTags,Component};
 })();

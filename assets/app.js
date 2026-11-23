@@ -811,7 +811,7 @@ function Workspace() {
       className: 'status-filter-header'
     })
   });
-  const [page, setPage] = useState('project'),
+  const [page, setPage] = useState(()=>new URLSearchParams(window.location.search).has('tagManagementProject')?'enterprise':'project'),
     [mobile, setMobile] = useState(false),
     [projects, setProjects] = useState(initialProjects),
     [tasks, setTasks] = useState(initialTasks),
@@ -1486,13 +1486,20 @@ function Workspace() {
     });
   }
   function updateRecordStage(target, stage, successMessage, cleaningMetadata = {}) {
+    const projectId = target.project || apis.find(api => api.key === target.apiKey)?.project || tasks.find(item => item.apiKey === target.apiKey)?.project;
+    const automaticFinal = stage === 'initial_approved' && window.ReviewSettings.autoApprove(projectId);
+    if (automaticFinal) {
+      stage = 'final_approved';
+      successMessage = '初审通过，已自动终审通过';
+      cleaningMetadata = {...cleaningMetadata, autoFinalApproved: true, initialApprovedAt: new Date().toISOString(), finalApprovedAt: new Date().toISOString()};
+    }
     setRecords(records.map(item => item.key === target.key ? {
       ...item,
       stage,
       conversation,
       ...cleaningMetadata
     } : item));
-    const countChanges = {
+    const countChanges = automaticFinal ? {initialApproved: 1, finalApproved: 1} : {
       initial_rejected: {initialRejected: 1},
       initial_approved: {initialApproved: 1, pendingFinal: 1},
       final_rejected: {finalRejected: 1, pendingFinal: -1},
@@ -2501,25 +2508,7 @@ function Workspace() {
     }]
   })), detailTab === 'settings' && /*#__PURE__*/React.createElement("div", {
     className: "project-settings-panel"
-  }, /*#__PURE__*/React.createElement(Descriptions, {
-    bordered: true,
-    column: 1,
-    items: [{
-      key: 'frequency',
-      label: 'HCP 采集频率限制',
-      children: /*#__PURE__*/React.createElement('div', {
-        className: 'project-setting-value'
-      }, /*#__PURE__*/React.createElement('span', null,
-        projectSetting.frequencyMode === 'once'
-          ? '当前项目不能重复采集'
-          : `指定周期内不能重复采集（${projectSetting.days}天内可采集${projectSetting.times}次）`
-      ), /*#__PURE__*/React.createElement(Button, {
-        type: 'link',
-        size: 'small',
-        onClick: openProjectSetting
-      }, '修改'))
-    }]
-  })))), page === 'api' && /*#__PURE__*/React.createElement(React.Fragment, null, title('API 管理', '', /*#__PURE__*/React.createElement(Button, {
+  }, React.createElement(window.ScreeningSettings, {key: selected.key, projectId: selected.key, frequency: projectSetting, onEditFrequency: openProjectSetting})))), page === 'api' && /*#__PURE__*/React.createElement(React.Fragment, null, title('API 管理', '', /*#__PURE__*/React.createElement(Button, {
     type: 'primary',
     icon: /*#__PURE__*/React.createElement(Icon, {name: 'plus'}),
     onClick: openApiCreator
