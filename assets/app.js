@@ -1341,6 +1341,8 @@ function Workspace() {
   const visiblePeople = people.filter(person => !removedHcpKeys.includes(person.key));
   const removedHcpNames = new Set(people.filter(person => removedHcpKeys.includes(person.key)).map(person => person.name));
   const visibleRecords = records.filter(item => !removedHcpNames.has(item.name));
+  const selectedProjectRecords = visibleRecords.filter(record => apis.some(api => api.project === selected.key && api.key === record.apiKey));
+  const interfaceAnalysisRecords = visibleRecords.filter(record => record.apiKey === task.apiKey && ['initial_approved', 'final_approved'].includes(record.stage));
   function removeHcpFromTask(person) {
     const next = [...new Set([...removedHcpKeys, person.key])];
     setRemovedHcpKeys(next);
@@ -1877,7 +1879,7 @@ function Workspace() {
   }
   function recordTable() {
     if (page === 'detail') return React.createElement(window.DemandDataViews.Dataset, {
-      records:visibleRecords, filter:datasetReviewFilter, onFilter:setDatasetReviewFilter, onView:openRecord,
+      records:selectedProjectRecords, filter:datasetReviewFilter, onFilter:setDatasetReviewFilter, onView:openRecord,
       resolveApi:record=>apis.find(api=>api.key===record.apiKey)?.name || '—',
       renderPerson:()=>React.createElement(Person,{name:'张三',sub:'医药代表'}), pagination, scopeKey:selected.key
     });
@@ -2451,9 +2453,10 @@ function Workspace() {
     scroll: {
       x: 1320
     }
-  })), detailTab === 'analysis' && React.createElement(window.DemandDataViews.Analysis, {
+  })), detailTab === 'analysis' && React.createElement(window.DemandDataViews.ProjectAnalysis, {
+    key:selected.key, scope:selected.key, records:selectedProjectRecords,
     current:selected.current, target:selected.target,
-    approved:Math.round(selected.current * records.filter(r=>r.stage==='final_approved').length / Math.max(1,records.filter(r=>getConversationStatus(r,'demand')).length))
+    approved:Math.round(selected.current * selectedProjectRecords.filter(r=>r.stage==='final_approved').length / Math.max(1,selectedProjectRecords.filter(r=>getConversationStatus(r,'demand')).length))
   }), detailTab === 'info' && /*#__PURE__*/React.createElement("div", {
     style: {
       padding: 24
@@ -2649,6 +2652,9 @@ function Workspace() {
       key: 'data',
       label: '数据集'
     }, {
+      key: 'analysis',
+      label: '数据分析'
+    }, {
       key: 'info',
       label: '接口详情'
     }]
@@ -2718,7 +2724,11 @@ function Workspace() {
         }, React.createElement(Button, {type: 'link', style: {padding: 0}}, '更多'))
       )
     }]
-  })) : flowTab === 'data' ? recordTable() : /*#__PURE__*/React.createElement("div", {
+  })) : flowTab === 'data' ? recordTable() : flowTab === 'analysis' ? React.createElement(window.DemandDataViews.ProjectAnalysis, {
+    key:task.apiKey, scope:task.project, records:interfaceAnalysisRecords, manageTags:false,
+    current:task.current, target:task.target,
+    approved:Math.round(task.current * interfaceAnalysisRecords.filter(record=>record.stage==='final_approved').length / Math.max(1,interfaceAnalysisRecords.length))
+  }) : /*#__PURE__*/React.createElement("div", {
     style: {
       padding: 24
     }
@@ -3632,12 +3642,13 @@ function Workspace() {
     className: "bubble"
   }, text))))), /*#__PURE__*/React.createElement(Drawer, {
     title: "\u6570\u636E\u8BE6\u60C5",
-    width: 560,
+    width: page === 'detail' ? 'min(980px, 96vw)' : 560,
+    className: page === 'detail' ? 'tag-detail-drawer demand-tag-detail-drawer' : undefined,
     zIndex: 1200,
     open: !!record,
     destroyOnClose: true,
     onClose: () => setRecord(null),
-    extra: record && (() => {
+    extra: page !== 'detail' && record && (() => {
       const status = getConversationStatus(record, page === 'detail' ? 'demand' : 'collector');
       return status ? React.createElement(Tag,{color:status[1]},status[0]) : null;
     })(),
@@ -3670,8 +3681,11 @@ function Workspace() {
       type: "primary",
       onClick: () => updateRecordStage(record, 'final_approved', '终审通过，该对话已采用')
     }, "\u7EC8\u5BA1\u901A\u8FC7")))
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "conversation"
+  }, React.createElement(page === 'detail' && record ? window.DataTagging.Detail : React.Fragment,
+    page === 'detail' && record ? {key:selected.key+':'+record.key,embedded:true,scope:selected.key,record,records:selectedProjectRecords.filter(r=>getConversationStatus(r,'demand'))} : null,
+    React.createElement('div',{className:page === 'detail' ? 'tag-native-body' : undefined}, /*#__PURE__*/React.createElement("div", {
+    className: "conversation",
+    'data-record-status': record ? getConversationStatus(record, page === 'detail' ? 'demand' : 'collector')?.[0] || '' : ''
   }, conversation.map((entry, i) => /*#__PURE__*/React.createElement("div", {
     key: i,
     className: `message-row ${entry.sender === 'rep' ? 'right' : ''}`
@@ -3679,11 +3693,11 @@ function Workspace() {
     className: "message-label"
   }, entry.sender === 'rep' ? '张三 · 医药代表' : `${record?.name || '医生'} · 医生`), /*#__PURE__*/React.createElement("div", {
     className: "bubble"
-  }, editing === i && page === 'flow' && record?.stage === 'pending_cleaning' ? /*#__PURE__*/React.createElement(Input.TextArea, {
+  }, entry.sender !== 'rep' && editing === i && page === 'flow' && record?.stage === 'pending_cleaning' ? /*#__PURE__*/React.createElement(Input.TextArea, {
     value: editText,
     onChange: e => setEditText(e.target.value),
     autoSize: true
-  }) : entry.text), page === 'flow' && record?.stage === 'pending_cleaning' && /*#__PURE__*/React.createElement("div", {
+  }) : entry.text), entry.sender !== 'rep' && page === 'flow' && record?.stage === 'pending_cleaning' && /*#__PURE__*/React.createElement("div", {
     className: "bubble-actions"
   }, editing === i ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(Button, {
     type: "link",
@@ -3707,7 +3721,7 @@ function Workspace() {
       setEditing(i);
       setEditText(entry.text);
     }
-  }, "\u4FEE\u6B63\u9519\u522B\u5B57")))))));
+  }, "\u4FEE\u6B63\u9519\u522B\u5B57")))))))));
 }
 ReactDOM.createRoot(document.getElementById('root')).render(/*#__PURE__*/React.createElement(ConfigProvider, {
   theme: {

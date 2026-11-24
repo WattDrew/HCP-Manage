@@ -40,7 +40,7 @@ window.DemandDataViews = (() => {
       {title:'操作',width:160,fixed:'right',render:(_,r)=>h(Space,null,h(Button,{type:'link',style:{padding:0},onClick:()=>inspect(r)},'查看'),T.get(scope,r).status!=='done'&&h(Button,{type:'link',style:{padding:0},loading:T.get(scope,r).status==='running',onClick:()=>run([r])},'AI 打标'))}
     ];
     const allSelected=filtered.length>0&&filtered.every(r=>selected.includes(r.key||r.id));
-    const actions=h('div',{className:'tag-toolbar-actions'},!tagDetail&&h(Button,{onClick:()=>setLibrary(true)},'标签体系'),batch?h(React.Fragment,null,h('span',{className:'tag-selected-count'},`已选 ${selected.length} 条`),h(Button,{onClick:()=>{setSelected([]);setBatch(false);}},'取消'),h(Button,{disabled:!filtered.length,onClick:()=>setSelected(allSelected?[]:filtered.map(r=>r.key||r.id))},allSelected?'取消全选':'全选'),h(Button,{disabled:!eligible.length,onClick:openSpecified},'指定标签打标'),h(Button,{type:'primary',disabled:!eligible.length,onClick:()=>run(eligible)},'AI 打标')):h(Button,{disabled:!filtered.length,onClick:()=>{setBatch(true);setSelected([]);}},'批量操作'));
+    const actions=h('div',{className:'tag-toolbar-actions'},batch?h(React.Fragment,null,h('span',{className:'tag-selected-count'},`已选 ${selected.length} 条`),h(Button,{onClick:()=>{setSelected([]);setBatch(false);}},'取消'),h(Button,{disabled:!filtered.length,onClick:()=>setSelected(allSelected?[]:filtered.map(r=>r.key||r.id))},allSelected?'取消全选':'全选'),h(Button,{disabled:!eligible.length,onClick:openSpecified},'指定标签打标'),h(Button,{type:'primary',disabled:!eligible.length,onClick:()=>run(eligible)},'AI 打标')):h(Button,{disabled:!filtered.length,onClick:()=>{setBatch(true);setSelected([]);}},'批量操作'));
     return h('div',{className:'table-wrap task-flow-table record-data-table',style:{paddingTop:20}},
       h('div',{className:'tag-list-toolbar'},h(Input,{allowClear:true,placeholder:'搜索采集对象',value:search,onChange:e=>setSearch(e.target.value),style:{width:215}}),h(Select,{'aria-label':'数据状态筛选',value:filter,onChange:onFilter,options,style:{width:160}}),h(Input,{'aria-label':'标签搜索',allowClear:true,placeholder:'搜索标签，多个用顿号或空格分隔',title:'多个标签需同时匹配，支持部分文字搜索',value:tagSearch,onChange:e=>setTagSearch(e.target.value),style:{width:300}}),h(Select,{value:tagState,onChange:setTagState,style:{width:140},options:[{value:'all',label:'全部打标状态'},{value:'none',label:'未打标'},{value:'running',label:'打标中'},{value:'done',label:'已打标'},{value:'failed',label:'打标失败'}]}),!tagDetail&&actions),
       actionsHost&&ReactDOM.createPortal(actions,actionsHost),
@@ -75,5 +75,13 @@ window.DemandDataViews = (() => {
           Array.from({length:count},(_,i)=>h('i',{key:i,className:`signal-dot ${i*scale<reviewed?'cleaned':i*scale<collected?'awaiting-clean':'uncollected'}`}))),
         h('div',{className:'signal-legend'},legend('uncollected','待采集',remaining),legend('awaiting-clean','待审核',awaiting),legend('cleaned','已审核',reviewed)))));
   }
-  return {Dataset,Analysis};
+  function ProjectAnalysis({scope,records,current,target,approved,manageTags=true}){
+    const [managementOpen,setManagementOpen]=React.useState(false);
+    const demandRecords=records.filter(r=>states[r.stage]);
+    return h(React.Fragment,null,
+      h(Analysis,{current,target,approved}),
+      h(window.TagCoverage.Component,{scope,records:demandRecords,onEditSchema:manageTags?()=>setManagementOpen(true):undefined}),
+      manageTags&&h(window.DataTagging.Library,{editor:true,scope,open:managementOpen,onClose:()=>setManagementOpen(false)}));
+  }
+  return {Dataset,Analysis,ProjectAnalysis};
 })();

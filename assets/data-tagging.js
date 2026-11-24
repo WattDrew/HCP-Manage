@@ -239,8 +239,9 @@ window.DataTagging = (() => {
   const NativeContent=React.memo(function NativeContent({record}){
     return h('div',{className:'tag-native-body'},h('div',{className:'conversation','data-view-side':'demand','data-read-only':'true','data-record-status':({final_approved:'终审通过',final_rejected:'终审未通过',initial_approved:'待审核'}[record.stage]||''),'data-rejection-reason':record.stage==='final_rejected'?record.reason:''},messages(record).map((m,i)=>h('div',{key:i,id:`tag-message-current-${i}`,className:`message-row ${m.sender==='doctor'?'':'right'}`},h('div',{className:'message-label'},m.sender==='doctor'?`${record.name} · 医生`:'张三 · 医药代表'),h('div',{className:'bubble'},m.text)))));
   });
-  function Detail({scope,record,records=[],onClose,onManageTags}){
+  function Detail({scope,record,records=[],onClose,onManageTags,embedded=false,children}){
     useStore();
+    const [managementOpen,setManagementOpen]=useState(false);
     const [editing,setEditing]=useState(false),[draft,setDraft]=useState([]),[field,setField]=useState(null);
     const [pickerGroup,setPickerGroup]=useState(null),[pickerSelected,setPickerSelected]=useState([]),[pickerSearch,setPickerSearch]=useState('');
     const entry=get(scope,record),shown=editing?draft:entry.tags;
@@ -279,8 +280,9 @@ window.DataTagging = (() => {
     function editTag(group,index,label=''){if(field){message.info('请先完成当前标签的编辑');return;}setField({group,index,label});}
     function rerun(){request(scope,[record]);}
     const input=group=>field?.group===group&&h('div',{className:'tag-inline-input'},h(Input,{'aria-label':'标签名称',autoFocus:true,maxLength:40,size:'small',value:field.label,onChange:e=>setField({...field,label:e.target.value}),onPressEnter:commitField,onKeyDown:e=>{if(e.key==='Escape')setField(null);}}),h(Button,{size:'small','aria-label':'完成标签输入',onClick:commitField},'✓'),h(Button,{size:'small','aria-label':'取消标签输入',onClick:()=>setField(null)},'×'));
-    return h(Drawer,{title:'数据详情',className:'tag-detail-drawer',width:'min(820px, 96vw)',open:true,onClose,destroyOnClose:true},
-      h(Modal,{title:'添加标签',open:pickerGroup!==null,width:760,onCancel:()=>setPickerGroup(null),onOk:confirmPicker,okText:'确认',cancelText:'取消',footer:h('div',{className:'tag-picker-footer'},h(Button,{type:'link',className:'tag-picker-manage',onClick:onManageTags},'标签管理'),h(Button,{onClick:refreshPicker},'刷新'),h(Button,{onClick:()=>setPickerGroup(null)},'取消'),h(Button,{type:'primary',onClick:confirmPicker},'确认'))},
+    return h(embedded?React.Fragment:Drawer,embedded?null:{title:'数据详情',className:'tag-detail-drawer',width:'min(820px, 96vw)',open:true,onClose,destroyOnClose:true},
+      h(Library,{editor:true,scope,open:managementOpen,onClose:()=>setManagementOpen(false)}),
+      h(Modal,{title:'添加标签',open:pickerGroup!==null,width:760,onCancel:()=>setPickerGroup(null),onOk:confirmPicker,okText:'确认',cancelText:'取消',footer:h('div',{className:'tag-picker-footer'},h(Button,{type:'link',className:'tag-picker-manage',onClick:onManageTags||(()=>setManagementOpen(true))},'标签管理'),h(Button,{onClick:refreshPicker},'刷新'),h(Button,{onClick:()=>setPickerGroup(null)},'取消'),h(Button,{type:'primary',onClick:confirmPicker},'确认'))},
         h('div',{style:{display:'flex',gap:16,alignItems:'center',marginBottom:16}},h(Input,{'aria-label':'搜索已有标签',placeholder:'搜索标签或分类',allowClear:true,value:pickerSearch,onChange:e=>setPickerSearch(e.target.value)}),h(Button,{disabled:!available.length,onClick:()=>setPickerSelected(pickerSelected.length===available.length?[]:available)},pickerSelected.length===available.length&&available.length?'取消全选':'全选')),
         h('div',{style:{color:'#667085',marginBottom:16}},`已选 ${pickerSelected.length} / ${allPickerLabels.length} 个标签`),
         h('div',{style:{maxHeight:420,overflowY:'auto',paddingRight:8}},shownPickerGroups.length?shownPickerGroups.map(({group,labels})=>h('section',{key:group,style:{marginBottom:20}},
@@ -298,7 +300,7 @@ window.DataTagging = (() => {
             return h('section',{className:'tag-group',key:group},h('h4',null,group),h('div',{className:'tag-chip-wrap'},tags.map(t=>field?.group===group&&field.index===t.index?null:h('span',{key:t.index,className:`tag-inline-chip ${t.source==='人工'?'source-manual':'source-ai'} ${editing?'is-editing':''}`,onDoubleClick:()=>editing&&editTag(group,t.index,t.label),title:(t.source==='人工'?'手动打标':'AI 打标')+(editing?' · 双击修改标签':'')},h('span',null,t.label),editing&&h('button',{type:'button','aria-label':`移除标签 ${t.label}`,onClick:()=>{setDraft(draft.filter((_,i)=>i!==t.index));setField(null);},onDoubleClick:e=>e.stopPropagation()},'×')))),input(group));
           }),editing&&h('button',{type:'button',className:'tag-add-chip','aria-label':'添加标签',onClick:()=>openPicker('all')},'+')),
           h('div',{className:'tag-source-legend'},h('span',{className:'ai'},'AI 打标'),h('span',{className:'manual'},'手动打标'))),
-        h('main',{className:'tag-detail-main'},h(NativeContent,{record}))));
+        h('main',{className:'tag-detail-main'},children||h(NativeContent,{record}))));
   }
   return {taxonomy,getTaxonomy,refreshTaxonomy,openManagement,get,useStore,start,request,Cell,Library,Detail};
 })();

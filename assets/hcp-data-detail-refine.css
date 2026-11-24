@@ -38,6 +38,7 @@
 .review-reject-actions button { height:36px; padding:0 16px; border:1px solid #d0d5dd; border-radius:6px; background:#fff; }
 .review-reject-actions .confirm { border-color:#ff4d4f; background:#ff4d4f; color:#fff; }
 .message-row.right .admin-audio { margin-left:auto; }
+.message-ai-badge { display:inline-block; margin-left:4px; padding:0 3px; border:1px solid #b7caff; border-radius:3px; background:#eef3ff; color:#4864df; font-size:10px; font-weight:500; line-height:14px; vertical-align:middle; }
 .message-row:not(.right) .bubble-actions { justify-content:flex-start; }
 .message-row.right .bubble-actions { justify-content:flex-end; }
 .log-event-action { display:block; margin-top:7px; padding:0; border:0; background:transparent; color:#1677ff; font-size:12px; line-height:20px; cursor:pointer; }

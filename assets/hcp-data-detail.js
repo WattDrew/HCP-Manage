@@ -161,6 +161,14 @@
   function enhanceMessageAudio(drawer) {
     const durations = ['00:05', '00:02', '00:18', '00:11', '00:09', '00:16', '00:07', '00:14'];
     drawer.querySelectorAll('.conversation .message-row').forEach((row, index) => {
+      const label = row.querySelector('.message-label');
+      if (row.classList.contains('right') && label && !label.querySelector('.message-ai-badge')) {
+        const badge = document.createElement('span');
+        badge.className = 'message-ai-badge';
+        badge.textContent = 'AI';
+        badge.setAttribute('aria-label', 'AI 发言');
+        label.append(badge);
+      }
       const actions = row.querySelector('.bubble-actions');
       let audio = row.querySelector('.admin-audio');
       if (!audio) {
