@@ -290,7 +290,7 @@ window.DataTagging = (() => {
           })))):h(Empty,{description:'暂无可选标签'}))),
       h('div',{className:'tag-detail-layout'},
         h('aside',{className:'tag-sidebar tag-sidebar-inline'},
-          h('div',{className:'tag-side-title'},h('h3',null,'数据标签')),
+          h('div',{className:'tag-side-title'},h('h3',null,'数据标签',h('span',{className:'tag-ai-badge',role:'img','aria-label':'AI 打标',title:'AI 打标'},h('svg',{width:12,height:12,viewBox:'0 0 16 16',fill:'currentColor','aria-hidden':true},h('path',{d:'M6 1l1.5 4.5L12 7l-4.5 1.5L6 13 4.5 8.5 0 7l4.5-1.5L6 1zm7 0l.75 2.25L16 4l-2.25.75L13 7l-.75-2.25L10 4l2.25-.75L13 1z'})),'AI'))),
           h('div',{className:'tag-inline-actions'},editing?h(React.Fragment,null,h(Button,{size:'small',type:'primary',onClick:saveEdit},'确认'),h(Button,{size:'small',onClick:cancelEdit},'取消')):h(React.Fragment,null,h(Button,{size:'small',loading:entry.status==='running',onClick:()=>entry.status==='done'?rerun():start(scope,[record])},entry.status==='done'?'重新 AI 打标':'AI 自动打标'),h(Button,{size:'small',disabled:entry.status==='running',onClick:openEdit},'编辑标签'))),
           h('div',{className:'tag-side-scroll'},entry.status==='running'?h(Empty,{description:'正在生成标签…',image:Empty.PRESENTED_IMAGE_SIMPLE}):!editing&&!shown.length?h(Empty,{description:'暂无标签',image:Empty.PRESENTED_IMAGE_SIMPLE}):[...getTaxonomy(scope),...shown.filter(t=>!getTaxonomy(scope).some(([,g])=>g===t.group)).filter((t,i,a)=>a.findIndex(o=>o.group===t.group)===i).map(t=>['',t.group,[]])].map(([,group])=>{
             const tags=shown.map((t,index)=>({...t,index})).filter(t=>t.group===group);
