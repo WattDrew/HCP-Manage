@@ -36,6 +36,7 @@ window.DemandDataViews = (() => {
       {title:'数据标签',width:255,render:(_,r)=>h(T.Cell,{scope,record:r})},
       {title:'对话轮次',dataIndex:'turns',width:100},
       {title:'数据状态',dataIndex:'stage',width:150,render:(_,r)=>h(Tag,{color:states[r.stage][1]},states[r.stage][0])},
+      {title:'数据来源',dataIndex:'dataOrigin',width:120,render:value=>value||'—'},
       {title:'时间',dataIndex:'time',width:160},
       {title:'操作',width:160,fixed:'right',render:(_,r)=>h(Space,null,h(Button,{type:'link',style:{padding:0},onClick:()=>inspect(r)},'查看'),T.get(scope,r).status!=='done'&&h(Button,{type:'link',style:{padding:0},loading:T.get(scope,r).status==='running',onClick:()=>run([r])},'AI 打标'))}
     ];
@@ -57,7 +58,7 @@ window.DemandDataViews = (() => {
           })))):h(Empty,{description:'暂无可选标签'})),
         ),
       h(Table,{key:`${scopeKey}-${filter}`,rowKey:r=>r.key||r.id,columns,dataSource:filtered,rowSelection:batch?{selectedRowKeys:selected,onChange:setSelected,preserveSelectedRowKeys:true}:undefined,
-        pagination:pagination||{pageSize:5,showSizeChanger:false,showTotal:n=>`共 ${n} 条`},scroll:{x:1370},
+        pagination:pagination||{pageSize:5,showSizeChanger:false,showTotal:n=>`共 ${n} 条`},scroll:{x:1490},
         locale:{emptyText:'暂无符合条件的数据'}}),h(T.Library,{scope,open:library,onClose:()=>setLibrary(false)}),detail&&h(T.Detail,{key:scope+String(detail.key||detail.id),scope,record:detail,records:visible,onClose:()=>setDetail(null),onManageTags}));
   }
   function Analysis({current,target,approved}){

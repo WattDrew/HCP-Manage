@@ -297,6 +297,7 @@ const initialProjectTasks = [{
 }];
 const initialRecords = [{
   key: 'D-001',
+  dataOrigin: '新浪健康',
   apiKey: 'API-001',
   name: '张医生',
   turns: 20,
@@ -304,6 +305,7 @@ const initialRecords = [{
   time: '2026.09.17 11:25'
 }, {
   key: 'D-002',
+  dataOrigin: '元医AI',
   apiKey: 'API-002',
   name: '李医生',
   turns: 18,
@@ -311,6 +313,7 @@ const initialRecords = [{
   time: '2026.09.17 11:25'
 }, {
   key: 'D-003',
+  dataOrigin: '新浪健康',
   apiKey: 'API-001',
   name: '王医生',
   turns: 21,
@@ -318,6 +321,7 @@ const initialRecords = [{
   time: '2026.09.17 11:25'
 }, {
   key: 'D-004',
+  dataOrigin: '元医AI',
   apiKey: 'API-003',
   name: '赵医生',
   turns: 16,
@@ -325,6 +329,7 @@ const initialRecords = [{
   time: '2026.09.17 11:25'
 }, {
   key: 'D-005',
+  dataOrigin: '新浪健康',
   apiKey: 'API-002',
   name: '陈医生',
   turns: 22,
@@ -332,6 +337,7 @@ const initialRecords = [{
   time: '2026.09.17 11:25'
 }, {
   key: 'D-006',
+  dataOrigin: '元医AI',
   apiKey: 'API-001',
   name: '周医生',
   turns: 19,
@@ -339,6 +345,7 @@ const initialRecords = [{
   time: '2026.09.17 11:25'
 }, {
   key: 'D-007',
+  dataOrigin: '新浪健康',
   apiKey: 'API-004',
   name: '李医生',
   turns: 14,
@@ -346,6 +353,7 @@ const initialRecords = [{
   time: '2026.09.16 16:40'
 }, {
   key: 'D-008',
+  dataOrigin: '元医AI',
   apiKey: 'API-004',
   name: '李医生',
   turns: 22,
@@ -657,7 +665,7 @@ function TenantManagement({
   const showEditor = row => {
     setEditing(row || null);
     form.resetFields();
-    form.setFieldsValue(row || {code: `yubei-${Date.now().toString(36)}`, status: 'active', projects: 0, users: 1});
+    form.setFieldsValue(row ? {...row, doctorClient: row.doctorClient || 'none'} : {doctorClient: 'none', code: `yubei-${Date.now().toString(36)}`, status: 'active', projects: 0, users: 1});
     setOpen(true);
   };
   const saveTenant = values => {
@@ -778,7 +786,7 @@ function TenantManagement({
     tenantTable.style.width = '100%';
     tenantTable.style.minWidth = '100%';
   }, [filtered.length, status, keyword]);
-  return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement('div', {className: 'page-heading'}, /*#__PURE__*/React.createElement('div', null, /*#__PURE__*/React.createElement('h1', null, '采集租户管理'), /*#__PURE__*/React.createElement('div', {className: 'subtitle'}, '为外部采集团队开通语贝内部 CMS 管理账号，并维护其服务范围。')), /*#__PURE__*/React.createElement(Button, {type: 'primary', icon: /*#__PURE__*/React.createElement(Icon, {name: 'plus'}), onClick: () => showEditor()}, '新增采集租户')), /*#__PURE__*/React.createElement('div', {className: 'stats tenant-stats'}, [{label: '全部租户', value: tenants.length, unit: '家', icon: 'grid'}, {label: '启用中', value: tenants.filter(item => item.status === 'active').length, unit: '家', icon: 'check'}, {label: '管理端账号', value: tenants.reduce((total, item) => total + item.users, 0), unit: '个', icon: 'users'}, {label: '进行中项目', value: tenants.reduce((total, item) => total + item.projects, 0), unit: '个', icon: 'task'}].map(item => /*#__PURE__*/React.createElement(Card, {className: 'stat-card', key: item.label}, /*#__PURE__*/React.createElement('div', {className: 'stat-top'}, /*#__PURE__*/React.createElement('span', null, item.label), /*#__PURE__*/React.createElement('span', {className: 'stat-icon'}, /*#__PURE__*/React.createElement(Icon, {name: item.icon}))), /*#__PURE__*/React.createElement('div', {className: 'stat-number'}, item.value, /*#__PURE__*/React.createElement('span', {className: 'stat-unit'}, item.unit))))), /*#__PURE__*/React.createElement(Card, {className: 'table-card tenant-card'}, /*#__PURE__*/React.createElement('div', {className: 'section-title'}, '租户列表', /*#__PURE__*/React.createElement('small', null, '每个租户拥有独立的采集管理空间、账号和数据权限。')), /*#__PURE__*/React.createElement('div', {className: 'toolbar tenant-toolbar'}, /*#__PURE__*/React.createElement(Space, {wrap: true}, /*#__PURE__*/React.createElement(Input, {prefix: /*#__PURE__*/React.createElement(Icon, {name: 'search', size: 16}), allowClear: true, placeholder: '搜索租户名称、标识或管理员', value: keyword, onChange: event => setKeyword(event.target.value)}), /*#__PURE__*/React.createElement(Select, {value: status, onChange: setStatus, style: {width: 126}, options: [{value: 'all', label: '全部状态'}, {value: 'active', label: '启用中'}, {value: 'disabled', label: '已停用'}]})), /*#__PURE__*/React.createElement('span', {className: 'tenant-count'}, `共 ${filtered.length} 家租户`)), /*#__PURE__*/React.createElement('div', {className: 'table-wrap'}, /*#__PURE__*/React.createElement(Table, {dataSource: filtered, rowKey: 'key', pagination: {pageSize: 6, showSizeChanger: false, showTotal: number => `共 ${number} 条`}, scroll: {x: 1050}, columns: [{title: '租户名称', dataIndex: 'name', width: 260, render: (value, row) => /*#__PURE__*/React.createElement('div', {className: 'tenant-name-cell'}, /*#__PURE__*/React.createElement('span', {className: 'tenant-logo'}, value.slice(0, 1)), /*#__PURE__*/React.createElement('div', null, /*#__PURE__*/React.createElement('div', {className: 'cell-title'}, value), /*#__PURE__*/React.createElement('div', {className: 'cell-meta'}, '语贝内部 CMS')))}, {title: '租户标识', dataIndex: 'code', width: 180, render: value => /*#__PURE__*/React.createElement(Space, {size: 6}, /*#__PURE__*/React.createElement('code', {className: 'tenant-code'}, value), /*#__PURE__*/React.createElement(Button, {type: 'text', size: 'small', icon: /*#__PURE__*/React.createElement(Icon, {name: 'copy', size: 15}), onClick: () => copyCode(value), 'aria-label': '复制租户标识'}))}, {title: '管理员账号', width: 180, render: (_, row) => /*#__PURE__*/React.createElement('div', null, /*#__PURE__*/React.createElement('div', {className: 'cell-title'}, row.admin), /*#__PURE__*/React.createElement('div', {className: 'cell-meta'}, row.phone))}, {title: '采集项目', dataIndex: 'projects', width: 130, render: value => `${value} 个进行中`}, {title: '成员账号', dataIndex: 'users', width: 120, render: value => `${value} 个`}, {title: '状态', dataIndex: 'status', width: 120, render: value => /*#__PURE__*/React.createElement(Tag, {color: value === 'active' ? 'success' : 'default'}, value === 'active' ? '启用中' : '已停用')}, {title: '开通时间', dataIndex: 'createdAt', width: 140}, {title: '操作', width: 180, fixed: 'right', render: (_, row) => /*#__PURE__*/React.createElement(Space, {size: 14}, /*#__PURE__*/React.createElement(Button, {type: 'link', style: {padding: 0}, onClick: () => showEditor(row)}, '编辑'), /*#__PURE__*/React.createElement(Button, {type: 'link', style: {padding: 0}, onClick: () => {setTenants(current => current.map(item => item.key === row.key ? {...item, status: item.status === 'active' ? 'disabled' : 'active'} : item));message.success(row.status === 'active' ? '租户已停用' : '租户已启用');}}, row.status === 'active' ? '停用' : '启用'))}]}))), /*#__PURE__*/React.createElement(Modal, {title: editing ? '编辑采集租户' : '新增采集租户', open, onCancel: () => setOpen(false), onOk: () => form.submit(), okText: editing ? '保存' : '创建并开通', cancelText: '取消', destroyOnHidden: true}, /*#__PURE__*/React.createElement(Alert, {type: 'info', showIcon: true, message: editing ? '保存后将同步更新该租户的管理端配置。' : '创建后将自动开通语贝内部 CMS，并生成该租户的管理员账号。', style: {marginBottom: 20}}), /*#__PURE__*/React.createElement(Form, {form, layout: 'vertical', onFinish: saveTenant}, /*#__PURE__*/React.createElement(Form.Item, {label: '租户名称', name: 'name', rules: [{required: true, whitespace: true, message: '请输入租户名称'}]}, /*#__PURE__*/React.createElement(Input, {placeholder: '例如：华东医疗数据服务中心', maxLength: 50})), /*#__PURE__*/React.createElement(Form.Item, {label: '租户标识', name: 'code', extra: '用于管理端登录与系统内数据隔离。', rules: [{required: true, whitespace: true, pattern: /^[a-z0-9-]+$/, message: '请使用小写字母、数字或连字符'}]}, /*#__PURE__*/React.createElement(Input, {placeholder: '例如：yubei-east'})), /*#__PURE__*/React.createElement('div', {className: 'tenant-form-grid'}, /*#__PURE__*/React.createElement(Form.Item, {label: '管理员姓名', name: 'admin', rules: [{required: true, whitespace: true, message: '请输入管理员姓名'}]}, /*#__PURE__*/React.createElement(Input, {placeholder: '请输入姓名'})), /*#__PURE__*/React.createElement(Form.Item, {label: '管理员手机号', name: 'phone', rules: [{required: true, message: '请输入手机号'}]}, /*#__PURE__*/React.createElement(Input, {placeholder: '请输入手机号'}))), /*#__PURE__*/React.createElement('div', {className: 'tenant-form-grid'}, /*#__PURE__*/React.createElement(Form.Item, {label: '初始成员账号数', name: 'users', rules: [{required: true}]}, /*#__PURE__*/React.createElement(InputNumber, {min: 1, max: 999, precision: 0, style: {width: '100%'}})), /*#__PURE__*/React.createElement(Form.Item, {label: '账号状态', name: 'status', rules: [{required: true}]}, /*#__PURE__*/React.createElement(Select, {options: [{value: 'active', label: '启用'}, {value: 'disabled', label: '停用'}]}))))));
+  return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement('div', {className: 'page-heading'}, /*#__PURE__*/React.createElement('div', null, /*#__PURE__*/React.createElement('h1', null, '采集租户管理'), /*#__PURE__*/React.createElement('div', {className: 'subtitle'}, '为外部采集团队开通语贝内部 CMS 管理账号，并维护其服务范围。')), /*#__PURE__*/React.createElement(Button, {type: 'primary', icon: /*#__PURE__*/React.createElement(Icon, {name: 'plus'}), onClick: () => showEditor()}, '新增采集租户')), /*#__PURE__*/React.createElement('div', {className: 'stats tenant-stats'}, [{label: '全部租户', value: tenants.length, unit: '家', icon: 'grid'}, {label: '启用中', value: tenants.filter(item => item.status === 'active').length, unit: '家', icon: 'check'}, {label: '管理端账号', value: tenants.reduce((total, item) => total + item.users, 0), unit: '个', icon: 'users'}, {label: '进行中项目', value: tenants.reduce((total, item) => total + item.projects, 0), unit: '个', icon: 'task'}].map(item => /*#__PURE__*/React.createElement(Card, {className: 'stat-card', key: item.label}, /*#__PURE__*/React.createElement('div', {className: 'stat-top'}, /*#__PURE__*/React.createElement('span', null, item.label), /*#__PURE__*/React.createElement('span', {className: 'stat-icon'}, /*#__PURE__*/React.createElement(Icon, {name: item.icon}))), /*#__PURE__*/React.createElement('div', {className: 'stat-number'}, item.value, /*#__PURE__*/React.createElement('span', {className: 'stat-unit'}, item.unit))))), /*#__PURE__*/React.createElement(Card, {className: 'table-card tenant-card'}, /*#__PURE__*/React.createElement('div', {className: 'section-title'}, '租户列表', /*#__PURE__*/React.createElement('small', null, '每个租户拥有独立的采集管理空间、账号和数据权限。')), /*#__PURE__*/React.createElement('div', {className: 'toolbar tenant-toolbar'}, /*#__PURE__*/React.createElement(Space, {wrap: true}, /*#__PURE__*/React.createElement(Input, {prefix: /*#__PURE__*/React.createElement(Icon, {name: 'search', size: 16}), allowClear: true, placeholder: '搜索租户名称、标识或管理员', value: keyword, onChange: event => setKeyword(event.target.value)}), /*#__PURE__*/React.createElement(Select, {value: status, onChange: setStatus, style: {width: 126}, options: [{value: 'all', label: '全部状态'}, {value: 'active', label: '启用中'}, {value: 'disabled', label: '已停用'}]})), /*#__PURE__*/React.createElement('span', {className: 'tenant-count'}, `共 ${filtered.length} 家租户`)), /*#__PURE__*/React.createElement('div', {className: 'table-wrap'}, /*#__PURE__*/React.createElement(Table, {dataSource: filtered, rowKey: 'key', pagination: {pageSize: 6, showSizeChanger: false, showTotal: number => `共 ${number} 条`}, scroll: {x: 1050}, columns: [{title: '租户名称', dataIndex: 'name', width: 260, render: (value, row) => /*#__PURE__*/React.createElement('div', {className: 'tenant-name-cell'}, /*#__PURE__*/React.createElement('span', {className: 'tenant-logo'}, value.slice(0, 1)), /*#__PURE__*/React.createElement('div', null, /*#__PURE__*/React.createElement('div', {className: 'cell-title'}, value), /*#__PURE__*/React.createElement('div', {className: 'cell-meta'}, '语贝内部 CMS')))}, {title: '租户标识', dataIndex: 'code', width: 180, render: value => /*#__PURE__*/React.createElement(Space, {size: 6}, /*#__PURE__*/React.createElement('code', {className: 'tenant-code'}, value), /*#__PURE__*/React.createElement(Button, {type: 'text', size: 'small', icon: /*#__PURE__*/React.createElement(Icon, {name: 'copy', size: 15}), onClick: () => copyCode(value), 'aria-label': '复制租户标识'}))}, {title: '管理员账号', width: 180, render: (_, row) => /*#__PURE__*/React.createElement('div', null, /*#__PURE__*/React.createElement('div', {className: 'cell-title'}, row.admin), /*#__PURE__*/React.createElement('div', {className: 'cell-meta'}, row.phone))}, {title: '采集项目', dataIndex: 'projects', width: 130, render: value => `${value} 个进行中`}, {title: '成员账号', dataIndex: 'users', width: 120, render: value => `${value} 个`}, {title: '状态', dataIndex: 'status', width: 120, render: value => /*#__PURE__*/React.createElement(Tag, {color: value === 'active' ? 'success' : 'default'}, value === 'active' ? '启用中' : '已停用')}, {title: '开通时间', dataIndex: 'createdAt', width: 140}, {title: '操作', width: 180, fixed: 'right', render: (_, row) => /*#__PURE__*/React.createElement(Space, {size: 14}, /*#__PURE__*/React.createElement(Button, {type: 'link', style: {padding: 0}, onClick: () => showEditor(row)}, '编辑'), /*#__PURE__*/React.createElement(Button, {type: 'link', style: {padding: 0}, onClick: () => {setTenants(current => current.map(item => item.key === row.key ? {...item, status: item.status === 'active' ? 'disabled' : 'active'} : item));message.success(row.status === 'active' ? '租户已停用' : '租户已启用');}}, row.status === 'active' ? '停用' : '启用'))}]}))), /*#__PURE__*/React.createElement(Modal, {title: editing ? '编辑采集租户' : '新增采集租户', open, onCancel: () => setOpen(false), onOk: () => form.submit(), okText: editing ? '保存' : '创建并开通', cancelText: '取消', destroyOnHidden: true}, /*#__PURE__*/React.createElement(Alert, {type: 'info', showIcon: true, message: editing ? '保存后将同步更新该租户的管理端配置。' : '创建后将自动开通语贝内部 CMS，并生成该租户的管理员账号。', style: {marginBottom: 20}}), /*#__PURE__*/React.createElement(Form, {form, layout: 'vertical', onFinish: saveTenant}, /*#__PURE__*/React.createElement(Form.Item, {label: '租户名称', name: 'name', rules: [{required: true, whitespace: true, message: '请输入租户名称'}]}, /*#__PURE__*/React.createElement(Input, {placeholder: '例如：华东医疗数据服务中心', maxLength: 50})), /*#__PURE__*/React.createElement(Form.Item, {label: '租户标识', name: 'code', extra: '用于管理端登录与系统内数据隔离。', rules: [{required: true, whitespace: true, pattern: /^[a-z0-9-]+$/, message: '请使用小写字母、数字或连字符'}]}, /*#__PURE__*/React.createElement(Input, {placeholder: '例如：yubei-east'})), /*#__PURE__*/React.createElement('div', {className: 'tenant-form-grid'}, /*#__PURE__*/React.createElement(Form.Item, {label: '管理员姓名', name: 'admin', rules: [{required: true, whitespace: true, message: '请输入管理员姓名'}]}, /*#__PURE__*/React.createElement(Input, {placeholder: '请输入姓名'})), /*#__PURE__*/React.createElement(Form.Item, {label: '管理员手机号', name: 'phone', rules: [{required: true, message: '请输入手机号'}]}, /*#__PURE__*/React.createElement(Input, {placeholder: '请输入手机号'}))), /*#__PURE__*/React.createElement('div', {className: 'tenant-form-grid'}, /*#__PURE__*/React.createElement(Form.Item, {label: '初始成员账号数', name: 'users', rules: [{required: true}]}, /*#__PURE__*/React.createElement(InputNumber, {min: 1, max: 999, precision: 0, style: {width: '100%'}})), /*#__PURE__*/React.createElement(Form.Item, {label: '账号状态', name: 'status', rules: [{required: true}]}, /*#__PURE__*/React.createElement(Select, {options: [{value: 'active', label: '启用'}, {value: 'disabled', label: '停用'}]}))), /*#__PURE__*/React.createElement('div', {className: 'tenant-client-integration'}, /*#__PURE__*/React.createElement('div', {className: 'tenant-form-section integration'}, '客户端对接'), /*#__PURE__*/React.createElement(Form.Item, {label: '医生端', name: 'doctorClient'}, /*#__PURE__*/React.createElement(Select, {style: {width: '100%'}, options: [{value: 'none', label: '无'}, {value: 'sina-health', label: '新浪健康'}]}))))));
 }
 const removedHcpStorageKey = 'yubei-removed-task-hcps';
 function Workspace() {
@@ -1327,6 +1335,7 @@ function Workspace() {
       setRecords([...records, {
         key: `D-${Date.now()}`,
         name: doctorSession.doctor,
+        dataOrigin: doctorSession.dataOrigin || '元医AI',
         turns: doctorSession.turns,
         stage: 'pending_cleaning',
         apiKey: task.apiKey || apis.find(item => item.project === task.project)?.key || 'API-001',
@@ -1859,6 +1868,11 @@ function Workspace() {
       }, status[0]) : null;
     }
   }, {
+    title: '数据来源',
+    dataIndex: 'dataOrigin',
+    width: 120,
+    render: value => value || '—'
+  }, {
     title: '时间',
     dataIndex: 'time',
     width: 160
@@ -1906,7 +1920,7 @@ function Workspace() {
       columns: recordColumns,
       dataSource: filteredRecords,
       pagination: pagination,
-      scroll: {x: 1000},
+      scroll: {x: 1120},
       locale: {emptyText: page === 'flow' ? '暂无医生已提交的数据' : datasetReviewFilter === 'all' ? '暂无待审核数据' : '当前状态暂无数据'}
     }));
   }
@@ -2803,7 +2817,7 @@ function Workspace() {
     className: "message-label"
   }, i % 2 === 0 ? '张三 · 医药代表' : `${doctorSession?.doctor || '医生'} · 医生`), /*#__PURE__*/React.createElement("div", {
     className: "bubble"
-  }, text))))))), page === 'hcp' && /*#__PURE__*/React.createElement(React.Fragment, null, title('HCP 管理', '', /*#__PURE__*/React.createElement(Button, {
+  }, text))))))), page === 'hcp' && /*#__PURE__*/React.createElement(React.Fragment, null, title('HCP 管理', '', /*#__PURE__*/React.createElement(Space, {size: 12}, /*#__PURE__*/React.createElement(window.HcpBatchImport, {hcps, onImport: rows => setHcps(current => [...current, ...rows]), message}), /*#__PURE__*/React.createElement(Button, {
     type: "primary",
     icon: /*#__PURE__*/React.createElement(Icon, {
       name: "plus"
@@ -2813,7 +2827,7 @@ function Workspace() {
       setHcpEditing(null);
       setModal('hcp');
     }
-  }, "\u6DFB\u52A0 HCP")), /*#__PURE__*/React.createElement(Card, {
+  }, "\u6DFB\u52A0 HCP"))), /*#__PURE__*/React.createElement(Card, {
     className: "table-card"
   }, /*#__PURE__*/React.createElement("div", {
     className: "section-title"
@@ -3658,7 +3672,7 @@ function Workspace() {
         justifyContent: 'flex-end',
         gap: 10
       }
-    }, hasConversationChanges() && React.createElement(Button,{className:'compare-footer-button',onClick:openOriginalComparison,style:{marginRight:'auto'}},'原始对话对比'), React.createElement('div',{className:'record-review-actions',style:{display:'flex',gap:10}}, page === 'flow' && record.stage === 'pending_cleaning' && /*#__PURE__*/React.createElement(Button, {
+    }, page === 'flow' && record.stage === 'pending_initial_review' && React.createElement(Tooltip,{title:getInitialReviewDisabledReason()},React.createElement('span',null,React.createElement(window.AIReview,{key:task.key+':'+record.key+':initial',scope:task.project||task.key,record,conversation,reviewStage:'initial',disabled:task.state!=='active',onDecision:(stage,metadata)=>{if(task.state!=='active')return;updateRecordStage(record,stage,stage==='initial_approved'?'初审通过，已提交需求端终审':'初审未通过，需要重新采集',metadata);}}))), page === 'detail' && record.stage === 'initial_approved' && React.createElement(window.AIReview,{key:selected.key+':'+record.key,scope:selected.key,record,conversation,onDecision:(stage,metadata)=>updateRecordStage(record,stage,stage==='final_approved'?'终审通过，该对话已采用':'终审未通过，需要重新采集',metadata)}), hasConversationChanges() && React.createElement(Button,{className:'compare-footer-button',onClick:openOriginalComparison,style:{marginRight:'auto'}},'原始对话对比'), React.createElement('div',{className:'record-review-actions',style:{display:'flex',gap:10}}, page === 'flow' && record.stage === 'pending_cleaning' && /*#__PURE__*/React.createElement(Button, {
       type: "primary",
       disabled: editing >= 0,
       onClick: completeCleaning
@@ -3685,7 +3699,8 @@ function Workspace() {
     page === 'detail' && record ? {key:selected.key+':'+record.key,embedded:true,scope:selected.key,record,records:selectedProjectRecords.filter(r=>getConversationStatus(r,'demand'))} : null,
     React.createElement('div',{className:page === 'detail' ? 'tag-native-body' : undefined}, /*#__PURE__*/React.createElement("div", {
     className: "conversation",
-    'data-record-status': record ? getConversationStatus(record, page === 'detail' ? 'demand' : 'collector')?.[0] || '' : ''
+    'data-record-status': record ? getConversationStatus(record, page === 'detail' ? 'demand' : 'collector')?.[0] || '' : '',
+    'data-rejection-reason': record?.reason || ''
   }, conversation.map((entry, i) => /*#__PURE__*/React.createElement("div", {
     key: i,
     className: `message-row ${entry.sender === 'rep' ? 'right' : ''}`

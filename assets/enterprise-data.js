@@ -46,6 +46,7 @@ window.EnterpriseData = (() => {
     api:apiRows(p)[i%apiRows(p).length].name,
     state:p.state==='done'?'approved':['approved','reviewing','approved','rejected'][i%4],
     stage:p.state==='done'?'final_approved':['final_approved','initial_approved','final_approved','final_rejected'][i%4],
+    dataOrigin:i%2?'元医AI':'新浪健康',
     collector:'张三',
     time:`${p.date} ${String(9+i%8).padStart(2,'0')}:25`,
     reason:i%4===3?'对话未覆盖要求的专业沟通场景':'—'

@@ -7,7 +7,7 @@
   let audioTimer = null;
 
   function reasonFor(meta) {
-    if (meta.readOnly) return meta.rejectionReason || '';
+    if (meta.rejectionReason || meta.readOnly) return meta.rejectionReason || '';
     const stage = meta.status === '初审未通过' ? 'initial_rejected' : meta.status === '终审未通过' ? 'final_rejected' : '';
     return reviewReasons[`${meta.name}:${meta.status}`] || (stage ? localStorage.getItem(`hcp-rejection-${stage}`) : '') || reasons[meta.status] || '';
   }

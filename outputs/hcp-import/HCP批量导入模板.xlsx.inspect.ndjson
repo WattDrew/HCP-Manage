@@ -1,0 +1,5 @@
+{"kind":"workbook","id":"wb/v56a62","sheets":1,"tables":1}
+{"kind":"sheet","id":"ws/oxxpgj","name":"HCP导入","index":0,"range":"A1:B1","address":"A1:B1","tables":1}
+{"kind":"table","sheet":"HCP导入","address":"A1:B1","rows":1,"cols":2,"values":[["医生姓名","手机号"]]}
+{"kind":"computedStyle","sheet":"HCP导入","for":"A1","style":{"fill":{"type":1,"color":{"type":1,"value":"1677FF"},"gradientStops":[],"pictureEffects":[]},"font":{"bold":true,"size":11,"name":"Arial","color":"#FFFFFF"},"border":{},"wrapText":false,"horizontalAlignment":"center","styleId":4}}
+{"kind":"computedStyle","sheet":"HCP导入","for":"B1","style":{"fill":{"type":1,"color":{"type":1,"value":"1677FF"},"gradientStops":[],"pictureEffects":[]},"font":{"bold":true,"size":11,"name":"Arial","color":"#FFFFFF"},"border":{},"wrapText":false,"horizontalAlignment":"center","styleId":4}}
