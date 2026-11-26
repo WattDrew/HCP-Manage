@@ -65,10 +65,85 @@ window.DataTagging = (() => {
     const url=new URL(window.location.href);url.searchParams.set('tagManagementProject',String(scope));
     window.open(url.href,'_blank','noopener');
   }
-  function saveTaxonomy(scope,rows){
-    const next={...schemas,[String(scope)]:rows};
-    try{localStorage.setItem(schemaStorage,JSON.stringify(next));schemas=next;listeners.forEach(fn=>fn());return true;}
-    catch{message.error('标签体系保存失败，请检查浏览器存储后重试');return false;}
+  const policyStorage='hcp-tag-policy-v1',backfillStorage='hcp-tag-backfills-v1';
+  const contexts=new Map(),backfillTimers=new Map();
+  const readObject=name=>{const v=JSON.parse(localStorage.getItem(name)||'{}');if(!v||typeof v!=='object'||Array.isArray(v))throw Error('Invalid storage');return v;};
+  function policy(scope){const p=readObject(policyStorage)[String(scope)]||{};return {connected:!!p.connected,used:p.used||0,remaining:Math.max(0,3-(p.used||0))};}
+  // Commit all affected stores together, rolling back if any write fails.
+  function commit(entries){
+    const previous=entries.map(([name])=>[name,localStorage.getItem(name)]);
+    try{entries.forEach(([name,value])=>localStorage.setItem(name,JSON.stringify(value)));return true;}
+    catch{for(const [name,value] of previous){try{if(value===null)localStorage.removeItem(name);else localStorage.setItem(name,value);}catch{}}message.error('标签保存失败，请检查浏览器存储后重试');return false;}
+  }
+  const tagId=t=>JSON.stringify([t.group,t.label]);
+  function registerProject(scope,{connected=false,records=[]}){
+    scope=String(scope);contexts.set(scope,records);
+    const policies=readObject(policyStorage),old=policies[scope]||{};
+    if(connected&&!old.connected){policies[scope]={...old,connected:true,used:old.used||0};if(commit([[policyStorage,policies]]))listeners.forEach(fn=>fn());}
+    enrichDynamic(scope,records);resumeBackfills();
+  }
+  function saveTaxonomy(scope,rows,{renames=[],groupRenames=[]}={}){
+    scope=String(scope);
+    const latest=readObject(schemaStorage),annotations=readObject(storage),policies=readObject(policyStorage),queue=readObject(backfillStorage);
+    const before=latest[scope]||taxonomy,p=policy(scope);
+    const remap=t=>{const rename=renames.find(r=>r.group===t.group&&r.label===t.label);return {...t,group:groupRenames.find(r=>r.from===t.group)?.to||t.group,label:rename?.to||t.label};};
+    const mapped=before.map(([level,group,labels,note=''])=>[level,groupRenames.find(r=>r.from===group)?.to||group,labels.map(label=>remap({group,label}).label),note]);
+    const oldIds=new Set(mapped.flatMap(([,group,labels])=>labels.map(label=>tagId({group,label}))));
+    for(const [k,e] of Object.entries(annotations))if(String(JSON.parse(k)[0])===scope)for(const t of e.tags||[])if(['医生职业背景','涉及对象'].includes(t.group))oldIds.add(tagId(remap(t)));
+    const added=rows.flatMap(([,group,labels])=>labels.map(label=>({group,label}))).filter(t=>!oldIds.has(tagId(t)));
+    if(rows.some(r=>!r[1].trim()||new Set(r[2]).size!==r[2].length)||new Set(rows.map(r=>r[1])).size!==rows.length){message.warning('分类或标签名称不能为空、重复');return false;}
+    if(p.connected){
+      if(rows.length!==mapped.length||rows.some((r,i)=>r[0]!==mapped[i][0]||r[1]!==mapped[i][1]||(r[3]||'')!==mapped[i][3])){message.warning('接口已对接，仅支持改名、删除标签和累计新增 3 个标签');return false;}
+      if(added.length>p.remaining){message.warning(`对接后最多累计新增 3 个标签，当前还可新增 ${p.remaining} 个`);return false;}
+      if(added.length&&!contexts.has(scope)){message.warning('历史数据尚未加载，请稍后重试');return false;}
+    }
+    const valid=new Set(rows.flatMap(([,group,labels])=>labels.map(label=>tagId({group,label}))));
+    // Dynamic extraction groups are open vocabularies; preserve existing extracted values.
+    const dynamicGroups=new Set(rows.filter(r=>['医生职业背景','涉及对象'].includes(r[1])).map(r=>r[1]));
+    for(const [k,entry] of Object.entries(annotations)){
+      if(String(JSON.parse(k)[0])!==scope)continue;
+      annotations[k]={...entry,tags:(entry.tags||[]).map(remap).filter(t=>valid.has(tagId(t))||dynamicGroups.has(t.group))};
+    }
+    for(const task of Object.values(queue))if(task.scope===scope)task.tags=task.tags.map(remap).filter(t=>valid.has(tagId(t)));
+    if(p.connected&&added.length){
+      policies[scope]={...policies[scope],connected:true,used:p.used+added.length};
+      for(const record of contexts.get(scope)||[]){
+        const k=key(scope,record),previous=queue[k];
+        queue[k]={scope,record,tags:[...new Map([...(previous?.tags||[]),...added].map(t=>[tagId(t),t])).values()]};
+      }
+    }
+    latest[scope]=rows;
+    if(!commit([[schemaStorage,latest],[storage,annotations],[policyStorage,policies],[backfillStorage,queue]]))return false;
+    schemas=latest;saved=annotations;listeners.forEach(fn=>fn());resumeBackfills();
+    if(p.connected&&added.length)message.success(`已新增 ${added.length} 个标签，正在为 ${(contexts.get(scope)||[]).length} 条历史数据定向补打`);
+    return true;
+  }
+  function renameLabel(scope,group,label,to){
+    to=to.trim();if(!to){message.warning('请输入标签名称');return false;}
+    const rows=getTaxonomy(scope).map(r=>[...r.slice(0,2),[...r[2]],r[3]||'']);
+    const row=rows.find(r=>r[1]===group);
+    if(!row||(!row[2].includes(label)&&!Object.entries(saved).some(([k,e])=>String(JSON.parse(k)[0])===String(scope)&&(e.tags||[]).some(t=>t.group===group&&t.label===label))))return false;
+    if(to!==label&&(row[2].includes(to)||Object.entries(saved).some(([k,e])=>String(JSON.parse(k)[0])===String(scope)&&(e.tags||[]).some(t=>t.group===group&&t.label===to)))){message.warning('该分类下已存在同名标签');return false;}
+    row[2]=row[2].includes(label)?row[2].map(v=>v===label?to:v):[...row[2],to];
+    return saveTaxonomy(scope,rows,{renames:[{group,label,to}]});
+  }
+  function resumeBackfills(){
+    for(const [k] of Object.entries(readObject(backfillStorage))){
+      if(backfillTimers.has(k))continue;
+      const run=()=>{
+        backfillTimers.delete(k);
+        const queue=readObject(backfillStorage),task=queue[k];if(!task)return;
+        if(jobs.has(k)){backfillTimers.set(k,setTimeout(run,250));return;}
+        const latest=readObject(schemaStorage);schemas=latest;
+        const wanted=new Set(task.tags.filter(t=>getTaxonomy(task.scope).some(([,g,labels])=>g===t.group&&labels.includes(t.label))).map(tagId));
+        const annotations=readObject(storage),entry=annotations[k]||{status:'none',tags:[]};
+        const additions=infer(task.record,task.scope).filter(t=>wanted.has(tagId(t)));
+        annotations[k]={...entry,status:'done',tags:[...entry.tags,...additions.filter(t=>!entry.tags.some(v=>tagId(v)===tagId(t)))],updated:new Date().toISOString()};
+        delete queue[k];
+        if(commit([[storage,annotations],[backfillStorage,queue]])){saved=annotations;listeners.forEach(fn=>fn());}
+      };
+      backfillTimers.set(k,setTimeout(run,400));
+    }
   }
   function deleteSchemaLabels(scope,removed){
     const ids=new Set(removed.map(t=>JSON.stringify([t.group,t.label])));
@@ -101,11 +176,32 @@ window.DataTagging = (() => {
     try{localStorage.setItem(storage,JSON.stringify(next));saved=next;listeners.forEach(fn=>fn());return true;}
     catch{message.error('标签保存失败，请检查浏览器存储后重试');return false;}
   }
+  // One-time demo annotations; existing user annotations always take precedence.
+  function seedDemo(records,resolveScope){
+    const marker='hcp-demo-tags-v1';
+    let seeded;try{seeded=JSON.parse(localStorage.getItem(marker)||'{}');}catch{seeded={};}
+    const next={...saved},positions=new Map();let changed=false;
+    const samples=[['拜访完整度','包含开场',3],['讨论主题','治疗选择',3],['医生参与度','正常互动',3],['讨论主题','患者教育',2],['医生关注偏好','关注疗效',2],['讨论主题','随访管理',1],['沟通结果','同意接收资料',1]];
+    for(const record of records){
+      const scope=resolveScope(record);if(!scope)continue;
+      const position=positions.get(scope)||0;positions.set(scope,position+1);
+      const k=key(scope,record);if(seeded[k])continue;
+      seeded[k]=true;changed=true;
+      if(Object.hasOwn(next,k))continue;
+      const scheme=getTaxonomy(scope);
+      const tags=samples.filter(([group,label,n])=>position<n&&scheme.some(([,g,labels])=>g===group&&labels.includes(label))).map(([group,label])=>({group,label,source:'人工',index:0,demo:true}));
+      if(tags.length)next[k]={status:'done',tags,demo:true,updated:new Date().toISOString()};
+    }
+    if(changed){try{localStorage.setItem(storage,JSON.stringify(next));localStorage.setItem(marker,JSON.stringify(seeded));saved=next;listeners.forEach(fn=>fn());}catch{message.error('示例标签保存失败，请检查浏览器存储后重试');}}
+  }
+  window.addEventListener?.('storage',event=>{if(event.key===storage||event.key===schemaStorage||event.key===policyStorage||event.key===backfillStorage||event.key===null)refreshTaxonomy();});
   function useStore(){const [,update]=useState(0);useEffect(()=>{const fn=()=>update(n=>n+1);listeners.add(fn);return()=>listeners.delete(fn);},[]);}
-  function messages(r){return (r.conversation||initialConversation).map((v,i)=>typeof v==='string'?{text:v,sender:i%2?'doctor':'rep'}:{...v,sender:v.sender|| (i%2?'doctor':'rep')});}
+  function messages(r){return (r.conversation||(typeof initialConversation!=='undefined'?initialConversation:[])).map((v,i)=>typeof v==='string'?{text:v,sender:i%2?'doctor':'rep'}:{...v,sender:v.sender|| (i%2?'doctor':'rep')});}
   function infer(r,scope){
     const msgs=messages(r),tags=[];
+    const profile=r.doctorProfile||r.hcpProfile||{};
     const add=(group,label,index)=>{if(!tags.some(t=>t.group===group&&t.label===label))tags.push({group,label,index,source:'AI'});};
+    if(profile.verified)for(const value of [profile.department,profile.title,profile.hospitalLevel,profile.region])if(value)add('医生职业背景',value);
     msgs.forEach((m,i)=>{
       if(/您好|你好/.test(m.text))add('拜访完整度','包含开场',i);
       if(/[？?]/.test(m.text)){add('拜访完整度','包含探询',i);if(m.sender==='doctor')add('询问与核实','提问',i);}
@@ -118,11 +214,23 @@ window.DataTagging = (() => {
         if(/下次|再聊/.test(m.text))add('沟通结果','同意进一步交流',i);
       }
       for(const [pattern,label] of [[/诊断|检查/,'诊断评估'],[/干预|治疗|药物|OK 镜/,'治疗选择'],[/随访/,'随访管理'],[/副作用|不良反应/,'不良反应'],[/用量|剂量/,'用法用量'],[/价格|费用/,'价格'],[/研究|证据/,'研究结果'],[/依从|坚持/,'依从性'],[/用眼习惯|户外活动/,'患者教育']])if(pattern.test(m.text))add('讨论主题',label,i);
-      for(const term of ['儿童近视','干眼','白内障','糖尿病','老年患者','低龄儿童','OK 镜'])if(m.text.includes(term))add('涉及对象',term,i);
+      for(const term of ['儿童近视','干眼','白内障','糖尿病','高血压','哮喘','肺癌','老年患者','低龄儿童','OK 镜'])if(m.text.includes(term))add('涉及对象',term,i);
     });
     const scheme=getTaxonomy(scope);
     for(const [,group,labels] of scheme)for(const label of labels){const index=msgs.findIndex(m=>m.text.includes(label));if(index>=0)add(group,label,index);}
-    return tags.filter(t=>scheme.some(([,group,labels])=>group===t.group&&(group==='涉及对象'||labels.includes(t.label))));
+    return tags.filter(t=>scheme.some(([,group,labels])=>group===t.group&&(['涉及对象','医生职业背景'].includes(group)||labels.includes(t.label))));
+  }
+  function enrichDynamic(scope,records){
+    const annotations=readObject(storage);let changed=false;
+    for(const record of records){
+      const k=key(scope,record),entry=annotations[k]||{status:'none',tags:[]};
+      const signature=JSON.stringify([record.doctorProfile||record.hcpProfile||{},messages(record)]);
+      if(entry.dynamicSignature===signature)continue;
+      const extra=infer(record,scope).filter(t=>['医生职业背景','涉及对象'].includes(t.group));
+      const tags=[...entry.tags,...extra.filter(t=>!entry.tags.some(v=>tagId(v)===tagId(t)))];
+      annotations[k]={...entry,tags,status:entry.status==='running'?'running':tags.length?'done':entry.status,dynamicSignature:signature};changed=true;
+    }
+    if(changed&&commit([[storage,annotations]])){saved=annotations;listeners.forEach(fn=>fn());}
   }
   function mergeTags(previous,generated,overwriteManual){
     const manual=overwriteManual?[]:previous.filter(t=>t.source==='人工');
@@ -141,10 +249,11 @@ window.DataTagging = (() => {
       const timer=setTimeout(()=>{
         jobs.delete(k);
         const matches=infer(r,scope).filter(t=>!selectedKeys||selectedKeys.has(JSON.stringify([t.group,t.label])));
+        const current=get(scope,r);
         const tags=selectedKeys
-          ? [...old.tags.filter(t=>t.source!=='人工'&&!selectedKeys.has(JSON.stringify([t.group,t.label]))),...mergeTags(old.tags,matches,overwriteManual)]
-          : mergeTags(old.tags,matches,overwriteManual);
-        if(!put(scope,r,{status:'done',tags,updated:new Date().toISOString()})){saved[k]={...old,status:'failed'};listeners.forEach(fn=>fn());}
+          ? [...current.tags.filter(t=>!selectedKeys.has(tagId(t))||(!overwriteManual&&t.source==='人工')),...matches.filter(t=>overwriteManual||!current.tags.some(v=>v.source==='人工'&&tagId(v)===tagId(t)))]
+          : mergeTags(current.tags,matches,overwriteManual);
+        if(!put(scope,r,{...get(scope,r),status:'done',tags,updated:new Date().toISOString()})){saved[k]={...old,status:'failed'};listeners.forEach(fn=>fn());}
       },850+count*200);
       jobs.set(k,timer);
     });
@@ -159,9 +268,13 @@ window.DataTagging = (() => {
     return h('div',{className:'tag-cell'},entry.tags.slice(0,2).map(t=>h(Tag,{key:t.group+t.label,color:t.source==='人工'?'orange':'blue',title:t.source==='人工'?'手动打标':'AI 打标'},t.label)),entry.tags.length>2&&h(Popover,{title:'全部标签',content:h('div',{className:'tag-popover'},entry.tags.map(t=>h(Tag,{key:t.group+t.label,color:t.source==='人工'?'orange':'blue',title:t.source==='人工'?'手动打标':'AI 打标'},t.label)))},h(Tag,{className:'tag-more'},`+${entry.tags.length-2}`)),!entry.tags.length&&h('span',{className:'tag-muted'},'未识别到标签'));
   }
   function SchemaEditor({open,onClose,scope='default'}){
+    useStore();
+    const limits=policy(scope),locked=limits.connected;
+    const readRows=()=>getTaxonomy(scope).map(([level,name,labels,note=''])=>({level,name,note,labels:[...new Set([...labels,...Object.entries(saved).filter(([k])=>String(JSON.parse(k)[0])===String(scope)).flatMap(([,e])=>(e.tags||[]).filter(t=>t.group===name).map(t=>t.label))])]}));
+    const [tagRename,setTagRename]=useState(null),[tagName,setTagName]=useState('');
     const [rows,setRows]=useState([]),[query,setQuery]=useState(''),[adding,setAdding]=useState(null),[label,setLabel]=useState(''),[renaming,setRenaming]=useState(null),[nameDraft,setNameDraft]=useState(''),[notes,setNotes]=useState([]),[deleting,setDeleting]=useState(false),[noteDrafts,setNoteDrafts]=useState({}),[pendingDeletes,setPendingDeletes]=useState({}),[deleteConfirm,setDeleteConfirm]=useState(false),[deleteSeconds,setDeleteSeconds]=useState(3),[deleteDeadline,setDeleteDeadline]=useState(0);
     useEffect(()=>{if(open){
-      setRows(getTaxonomy(scope).map(([level,name,labels,note=''])=>({level,name,note,labels:[...labels]})));
+      setRows(readRows());setTagRename(null);setTagName('');
       setQuery('');setAdding(null);setLabel('');setRenaming(null);setNameDraft('');setNotes([]);setDeleting(false);setNoteDrafts({});setPendingDeletes({});setDeleteConfirm(false);setDeleteDeadline(0);
     }},[open,scope]);
     useEffect(()=>{
@@ -169,10 +282,10 @@ window.DataTagging = (() => {
       const tick=()=>setDeleteSeconds(Math.max(0,Math.ceil((deleteDeadline-Date.now())/1000)));
       tick();const timer=setInterval(tick,100);return()=>clearInterval(timer);
     },[deleteConfirm,open,deleteDeadline]);
-    function update(index,values){
+    function update(index,values,options={}){
       const next=rows.map((row,i)=>i===index?{...row,...values}:row);
       if(!next[index].name.trim()){message.warning('请先填写分类名称');return false;}
-      if(!saveTaxonomy(scope,next.filter(row=>row.name.trim()).map(row=>[row.level,row.name.trim(),row.labels,row.note.trim()])))return false;
+      if(!saveTaxonomy(scope,next.filter(row=>row.name.trim()).map(row=>[row.level,row.name.trim(),row.labels,row.note.trim()]),options))return false;
       setRows(next);return true;
     }
     const visible=rows.map((row,index)=>({...row,index,visible:row.labels.filter(tag=>!(pendingDeletes[index]||[]).includes(tag)&&(row.name.includes(query.trim())||tag.includes(query.trim())))})).filter(row=>!query.trim()||row.name.includes(query.trim())||row.visible.length);
@@ -185,16 +298,17 @@ window.DataTagging = (() => {
     function finishDeleting(){
       if(!deleteConfirm||Date.now()<deleteDeadline||!removedLabels.length)return;
       if(!deleteSchemaLabels(scope,removedLabels))return;
-      setRows(getTaxonomy(scope).map(([level,name,labels,note=''])=>({level,name,labels:[...labels],note})));setPendingDeletes({});setDeleting(false);setDeleteConfirm(false);message.success('标签已删除，数据上的对应标签已移除');
+      setRows(readRows());setPendingDeletes({});setDeleting(false);setDeleteConfirm(false);message.success('标签已删除，数据上的对应标签已移除');
     }
     function cancelRename(index){if(!rows[index].name.trim())setRows(current=>current.filter((_,i)=>i!==index));setRenaming(null);}
     function rename(index){
       const value=nameDraft.trim();
       if(!value){message.warning('请填写分类名称');return false;}
       if(rows.some((row,i)=>i!==index&&row.name.trim()===value)){message.warning('分类名称不能重复');return false;}
-      if(!update(index,{name:value}))return false;setRenaming(null);return true;
+      if(!update(index,{name:value},{groupRenames:[{from:rows[index].name,to:value}]}))return false;setRenaming(null);return true;
     }
     function addLabel(index){
+      if(locked&&limits.remaining===0){message.warning('新增标签已达上限，最多可新增 3 个标签');return;}
       const value=label.trim();if(!value){message.warning('请输入标签名称');return;}
       const row=rows[index];if(row.labels.includes(value)){message.warning('该分类下已存在同名标签');return;}
       if(update(index,{labels:[...row.labels,value]})){setAdding(null);setLabel('');}
@@ -203,20 +317,21 @@ window.DataTagging = (() => {
       extra:h('div',{className:'tag-schema-header-actions'},deleting?h(React.Fragment,null,h(Button,{danger:true,onClick:requestDeletion},'完成删除'),h(Button,{onClick:()=>{setPendingDeletes({});setDeleting(false);}},'取消')):h(Button,{onClick:()=>{setPendingDeletes({});setDeleting(true);}},'删除标签'))},
       h(Modal,{title:'确认删除标签',open:open&&deleteConfirm,onCancel:()=>setDeleteConfirm(false),onOk:finishDeleting,okText:deleteSeconds>0?`确认删除（${deleteSeconds}s）`:'确认删除',cancelText:'取消',okButtonProps:{danger:true,disabled:deleteSeconds>0},maskClosable:false},
         h('p',null,`即将删除 ${removedLabels.length} 个标签。`),h('p',null,'删除标签将移除数据上的标签，本次操作不可撤销，请谨慎操作。')),
+      h(Modal,{title:'修改标签名称',open:!!tagRename,onCancel:()=>setTagRename(null),onOk:()=>{if(renameLabel(scope,tagRename.group,tagRename.label,tagName)){setRows(readRows());setTagRename(null);}},okText:'保存',cancelText:'取消'},h(Input,{value:tagName,maxLength:40,'aria-label':'修改标签名称',onChange:e=>setTagName(e.target.value)})),
       h('div',{className:'tag-schema-picker-toolbar'},h(Input,{allowClear:true,placeholder:'搜索标签或分类','aria-label':'搜索标签或分类',value:query,onChange:e=>setQuery(e.target.value)})),
-      h('p',{className:'tag-schema-picker-count','aria-live':'polite'},`共 ${total} 个标签`),
+      h('p',{className:'tag-schema-picker-count','aria-live':'polite'},`共 ${total} 个标签`,locked&&h('span',{style:{marginLeft:12}},`还可新增 ${limits.remaining} 个`)),
       h('div',{className:'tag-schema-picker-groups'},visible.map(row=>h('section',{key:row.index,className:'tag-schema-picker-group'},
         h('div',{className:'tag-schema-picker-heading'},renaming===row.index?h('div',{className:'tag-schema-name-editor'},h(Input,{className:'tag-schema-name-input',autoFocus:true,'aria-label':'分类名称',placeholder:'分类名称',maxLength:40,value:nameDraft,onChange:e=>setNameDraft(e.target.value),onPressEnter:()=>rename(row.index),onKeyDown:e=>{if(e.key==='Escape'){e.preventDefault();cancelRename(row.index);}}}),h(Button,{size:'small',type:'primary',onClick:()=>rename(row.index)},'保存'),h(Button,{size:'small',onClick:()=>cancelRename(row.index)},'取消')):h('h3',{title:'双击修改分类名称',tabIndex:0,onDoubleClick:()=>{setRenaming(row.index);setNameDraft(row.name);},onKeyDown:e=>{if(e.key==='Enter'){setRenaming(row.index);setNameDraft(row.name);}}},row.name||'新分类'),
           h(Button,{type:'text',size:'small','aria-label':`${row.name}备注`,'aria-expanded':notes.includes(row.index),onClick:()=>{if(!notes.includes(row.index)){setNoteDrafts(current=>({...current,[row.index]:row.note}));setNotes(current=>[...current,row.index]);}}},'备注')),
-        h('div',{className:'tag-schema-picker-buttons'},row.visible.map(tag=>h('span',{key:tag,className:'tag-schema-picker-button'+(deleting?' is-deleting':'')},h('span',null,tag),deleting&&h('button',{type:'button',className:'tag-schema-picker-delete','aria-label':`删除${row.name}标签：${tag}`,title:'删除标签',onClick:()=>setPendingDeletes(current=>({...current,[row.index]:[...new Set([...(current[row.index]||[]),tag])]}))},'×'))),
-          h('button',{type:'button',className:'tag-schema-picker-add','aria-label':`添加${row.name}标签`,onClick:()=>{setAdding(row.index);setLabel('');}},'+')),
+        h('div',{className:'tag-schema-picker-buttons'},row.visible.map(tag=>h('span',{key:tag,className:'tag-schema-picker-button'+(deleting?' is-deleting':'')},h('span',{title:'双击修改标签名称',tabIndex:deleting?-1:0,onDoubleClick:()=>{if(!deleting){setTagRename({group:row.name,label:tag});setTagName(tag);}},onKeyDown:e=>{if(e.key==='Enter'&&!deleting){setTagRename({group:row.name,label:tag});setTagName(tag);}}},tag),deleting&&h('button',{type:'button',className:'tag-schema-picker-delete','aria-label':`删除${row.name}标签：${tag}`,title:'删除标签',onClick:()=>setPendingDeletes(current=>({...current,[row.index]:[...new Set([...(current[row.index]||[]),tag])]}))},'×'))),
+          h('button',{type:'button',className:'tag-schema-picker-add'+(locked&&limits.remaining===0?' is-limit':''),disabled:deleting,title:locked?`还可新增 ${limits.remaining} 个标签`:'新增标签','aria-label':`添加${row.name}标签`,onClick:()=>{if(policy(scope).connected&&policy(scope).remaining===0){message.warning('新增标签已达上限，最多可新增 3 个标签');return;}setAdding(row.index);setLabel('');}},'+')),
         adding===row.index&&h('div',{className:'tag-schema-picker-new'},h(Input,{autoFocus:true,maxLength:40,placeholder:'输入标签名称','aria-label':'新标签名称',value:label,onChange:e=>setLabel(e.target.value),onPressEnter:()=>addLabel(row.index)}),h(Button,{type:'primary',onClick:()=>addLabel(row.index)},'添加'),h(Button,{onClick:()=>{setAdding(null);setLabel('');}},'取消')),
-        notes.includes(row.index)?h('div',{className:'tag-schema-picker-note-editor'},h(Input.TextArea,{'aria-label':`${row.name}分类备注`,placeholder:'输入分类备注，说明该分类的含义或标签使用规则',autoSize:{minRows:2,maxRows:5},value:noteDrafts[row.index]??row.note,onChange:e=>setNoteDrafts(current=>({...current,[row.index]:e.target.value}))}),h('div',{className:'tag-schema-note-actions'},h(Button,{size:'small',type:'primary',onClick:()=>{if(update(row.index,{note:(noteDrafts[row.index]??row.note).trim()}))setNotes(current=>current.filter(i=>i!==row.index));}},'保存'),h(Button,{size:'small',onClick:()=>setNotes(current=>current.filter(i=>i!==row.index))},'取消'))):row.note.trim()&&h('p',{className:'tag-schema-picker-note'},row.note))),
+        notes.includes(row.index)?h('div',{className:'tag-schema-picker-note-editor'},h(Input.TextArea,{readOnly:locked,'aria-label':`${row.name}分类备注`,placeholder:'输入分类备注，说明该分类的含义或标签使用规则',autoSize:{minRows:2,maxRows:5},value:noteDrafts[row.index]??row.note,onChange:e=>setNoteDrafts(current=>({...current,[row.index]:e.target.value}))}),h('div',{className:'tag-schema-note-actions'},!locked&&h(Button,{size:'small',type:'primary',onClick:()=>{if(update(row.index,{note:(noteDrafts[row.index]??row.note).trim()}))setNotes(current=>current.filter(i=>i!==row.index));}},'保存'),h(Button,{size:'small',onClick:()=>setNotes(current=>current.filter(i=>i!==row.index))},'取消'))):row.note.trim()&&h('p',{className:'tag-schema-picker-note'},row.note))),
         !visible.length&&h(Empty,{image:Empty.PRESENTED_IMAGE_SIMPLE,description:'暂无匹配的标签或分类'}),
-        !query.trim()&&h(Button,{type:'dashed',className:'tag-schema-new-category',onClick:()=>{setRenaming(rows.length);setNameDraft('');setRows(current=>[...current,{level:'整段对话',name:'',note:'',labels:[]}]);}},'+ 新增分类')));
+        !locked&&!query.trim()&&h(Button,{type:'dashed',className:'tag-schema-new-category',onClick:()=>{setRenaming(rows.length);setNameDraft('');setRows(current=>[...current,{level:'整段对话',name:'',note:'',labels:[]}]);}},'+ 新增分类')));
   }
   function Library(props){
-    return props.editor?h(SchemaEditor,props):h(LibraryModal,props);
+    return props.editor||policy(props.scope).connected?h(SchemaEditor,props):h(LibraryModal,props);
   }
   function LibraryModal({open,onClose,scope='default'}){
     useStore();
@@ -239,7 +354,7 @@ window.DataTagging = (() => {
   const NativeContent=React.memo(function NativeContent({record}){
     return h('div',{className:'tag-native-body'},h('div',{className:'conversation','data-view-side':'demand','data-read-only':'true','data-record-status':({final_approved:'终审通过',final_rejected:'终审未通过',initial_approved:'待审核'}[record.stage]||''),'data-rejection-reason':record.stage==='final_rejected'?record.reason:''},messages(record).map((m,i)=>h('div',{key:i,id:`tag-message-current-${i}`,className:`message-row ${m.sender==='doctor'?'':'right'}`},h('div',{className:'message-label'},m.sender==='doctor'?`${record.name} · 医生`:'张三 · 医药代表'),h('div',{className:'bubble'},m.text)))));
   });
-  function Detail({scope,record,records=[],onClose,onManageTags,embedded=false,children}){
+  function Detail({scope,record,records=[],onClose,onManageTags,embedded=false,readOnly=false,children}){
     useStore();
     const [managementOpen,setManagementOpen]=useState(false);
     const [editing,setEditing]=useState(false),[draft,setDraft]=useState([]),[field,setField]=useState(null);
@@ -281,8 +396,8 @@ window.DataTagging = (() => {
     function rerun(){request(scope,[record]);}
     const input=group=>field?.group===group&&h('div',{className:'tag-inline-input'},h(Input,{'aria-label':'标签名称',autoFocus:true,maxLength:40,size:'small',value:field.label,onChange:e=>setField({...field,label:e.target.value}),onPressEnter:commitField,onKeyDown:e=>{if(e.key==='Escape')setField(null);}}),h(Button,{size:'small','aria-label':'完成标签输入',onClick:commitField},'✓'),h(Button,{size:'small','aria-label':'取消标签输入',onClick:()=>setField(null)},'×'));
     return h(embedded?React.Fragment:Drawer,embedded?null:{title:'数据详情',className:'tag-detail-drawer',width:'min(820px, 96vw)',open:true,onClose,destroyOnClose:true},
-      h(Library,{editor:true,scope,open:managementOpen,onClose:()=>setManagementOpen(false)}),
-      h(Modal,{title:'添加标签',open:pickerGroup!==null,width:760,onCancel:()=>setPickerGroup(null),onOk:confirmPicker,okText:'确认',cancelText:'取消',footer:h('div',{className:'tag-picker-footer'},h(Button,{type:'link',className:'tag-picker-manage',onClick:onManageTags||(()=>setManagementOpen(true))},'标签管理'),h(Button,{onClick:refreshPicker},'刷新'),h(Button,{onClick:()=>setPickerGroup(null)},'取消'),h(Button,{type:'primary',onClick:confirmPicker},'确认'))},
+      !readOnly&&h(Library,{editor:true,scope,open:managementOpen,onClose:()=>setManagementOpen(false)}),
+      !readOnly&&h(Modal,{title:'添加标签',open:pickerGroup!==null,width:760,onCancel:()=>setPickerGroup(null),onOk:confirmPicker,okText:'确认',cancelText:'取消',footer:h('div',{className:'tag-picker-footer'},h(Button,{type:'link',className:'tag-picker-manage',onClick:onManageTags||(()=>setManagementOpen(true))},'标签管理'),h(Button,{onClick:refreshPicker},'刷新'),h(Button,{onClick:()=>setPickerGroup(null)},'取消'),h(Button,{type:'primary',onClick:confirmPicker},'确认'))},
         h('div',{style:{display:'flex',gap:16,alignItems:'center',marginBottom:16}},h(Input,{'aria-label':'搜索已有标签',placeholder:'搜索标签或分类',allowClear:true,value:pickerSearch,onChange:e=>setPickerSearch(e.target.value)}),h(Button,{disabled:!available.length,onClick:()=>setPickerSelected(pickerSelected.length===available.length?[]:available)},pickerSelected.length===available.length&&available.length?'取消全选':'全选')),
         h('div',{style:{color:'#667085',marginBottom:16}},`已选 ${pickerSelected.length} / ${allPickerLabels.length} 个标签`),
         h('div',{style:{maxHeight:420,overflowY:'auto',paddingRight:8}},shownPickerGroups.length?shownPickerGroups.map(({group,labels})=>h('section',{key:group,style:{marginBottom:20}},
@@ -293,7 +408,7 @@ window.DataTagging = (() => {
       h('div',{className:'tag-detail-layout'},
         h('aside',{className:'tag-sidebar tag-sidebar-inline'},
           h('div',{className:'tag-side-title'},h('h3',null,'数据标签',h('span',{className:'tag-ai-badge',role:'img','aria-label':'AI 打标',title:'AI 打标'},h('svg',{width:12,height:12,viewBox:'0 0 16 16',fill:'currentColor','aria-hidden':true},h('path',{d:'M6 1l1.5 4.5L12 7l-4.5 1.5L6 13 4.5 8.5 0 7l4.5-1.5L6 1zm7 0l.75 2.25L16 4l-2.25.75L13 7l-.75-2.25L10 4l2.25-.75L13 1z'})),'AI'))),
-          h('div',{className:'tag-inline-actions'},editing?h(React.Fragment,null,h(Button,{size:'small',type:'primary',onClick:saveEdit},'确认'),h(Button,{size:'small',onClick:cancelEdit},'取消')):h(React.Fragment,null,h(Button,{size:'small',loading:entry.status==='running',onClick:()=>entry.status==='done'?rerun():start(scope,[record])},entry.status==='done'?'重新 AI 打标':'AI 自动打标'),h(Button,{size:'small',disabled:entry.status==='running',onClick:openEdit},'编辑标签'))),
+          !readOnly&&h('div',{className:'tag-inline-actions'},editing?h(React.Fragment,null,h(Button,{size:'small',type:'primary',onClick:saveEdit},'确认'),h(Button,{size:'small',onClick:cancelEdit},'取消')):h(React.Fragment,null,h(Button,{size:'small',loading:entry.status==='running',onClick:()=>entry.status==='done'?rerun():start(scope,[record])},entry.status==='done'?'重新 AI 打标':'AI 自动打标'),h(Button,{size:'small',disabled:entry.status==='running',onClick:openEdit},'编辑标签'))),
           h('div',{className:'tag-side-scroll'},entry.status==='running'?h(Empty,{description:'正在生成标签…',image:Empty.PRESENTED_IMAGE_SIMPLE}):!editing&&!shown.length?h(Empty,{description:'暂无标签',image:Empty.PRESENTED_IMAGE_SIMPLE}):[...getTaxonomy(scope),...shown.filter(t=>!getTaxonomy(scope).some(([,g])=>g===t.group)).filter((t,i,a)=>a.findIndex(o=>o.group===t.group)===i).map(t=>['',t.group,[]])].map(([,group])=>{
             const tags=shown.map((t,index)=>({...t,index})).filter(t=>t.group===group);
             if(!tags.length)return null;
@@ -302,5 +417,5 @@ window.DataTagging = (() => {
           h('div',{className:'tag-source-legend'},h('span',{className:'ai'},'AI 打标'),h('span',{className:'manual'},'手动打标'))),
         h('main',{className:'tag-detail-main'},children||h(NativeContent,{record}))));
   }
-  return {taxonomy,getTaxonomy,refreshTaxonomy,openManagement,get,useStore,start,request,Cell,Library,Detail};
+  return {registerProject,policy,renameLabel,saveTaxonomy,deleteSchemaLabels,enrichDynamic,resumeBackfills,seedDemo,taxonomy,getTaxonomy,refreshTaxonomy,openManagement,get,useStore,start,request,Cell,Library,Detail};
 })();

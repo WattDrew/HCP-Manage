@@ -48,9 +48,12 @@ window.EnterpriseData = (() => {
     stage:p.state==='done'?'final_approved':['final_approved','initial_approved','final_approved','final_rejected'][i%4],
     dataOrigin:i%2?'元医AI':'新浪健康',
     collector:'张三',
+    doctorProfile:{verified:true,demo:true,department:p.name.includes('眼科')?'眼科':p.name.includes('糖尿病')?'内分泌科':'内科',title:i%2?'主治医师':'主任医师',hospitalLevel:'三级甲等',region:'上海'},
+    conversation:[{sender:'rep',text:'您好，今天交流'+(p.name.includes('眼科')?'儿童近视与 OK 镜':p.name.includes('糖尿病')?'糖尿病':p.name.includes('呼吸')?'哮喘':p.name.includes('肿瘤')?'肺癌':'高血压')+'的治疗。'},{sender:'doctor',text:'需要关注老年患者的长期安全性，也需要研究证据。'}],
     time:`${p.date} ${String(9+i%8).padStart(2,'0')}:25`,
     reason:i%4===3?'对话未覆盖要求的专业沟通场景':'—'
   }));
+  projects.forEach(p=>{window.DataTagging.seedDemo(dataRows(p),()=>p.id);window.DataTagging.registerProject(p.id,{connected:apiRows(p).some(api=>api.state!=='pending'),records:dataRows(p)});});
   const pagination = {pageSize:6, showSizeChanger:false, showTotal:n=>`共 ${n} 条`};
   function Component({message}) {
     const [saved,setSaved] = useState(readSaved);
@@ -122,10 +125,7 @@ window.EnterpriseData = (() => {
         tagDetail:true, actionsHost, records, filter:dataFilter, onFilter:setDataFilter, onView:r=>setInspected({kind:'data',id:r.id}),onManageTags:()=>window.DataTagging.openManagement(project.id),
         resolveApi:r=>r.api, renderPerson:r=>h(Person,{name:r.collector,sub:'医药代表'}),scopeKey:project.id
       });
-      if(tab==='analysis')detailContent=h(React.Fragment,null,h(window.DemandDataViews.Analysis,{
-        current:project.current,target:project.target,
-        approved:Math.round(project.current*records.filter(r=>r.stage==='final_approved').length/Math.max(1,records.length))
-      }),h(window.TagCoverage.Component,{key:project.id,scope:project.id,records,onEditSchema:()=>setTagLibrary(true)}));
+      if(tab==='analysis')detailContent=h(window.DemandDataViews.ProjectAnalysis,{key:project.id,scope:project.id,records});
     }
     return h('section',{className:'enterprise-viewer'},
       !project && h('div',{className:'page-heading'},h('div',null,h('h1',null,'企业采集数据'),h('div',{className:'subtitle'},'查看已添加需求端企业的采集项目与数据')),h(Button,{type:'primary',icon:h(Icon,{name:'plus'}),onClick:startAdd},'添加企业')),

@@ -360,6 +360,8 @@ const initialRecords = [{
   stage: 'initial_approved',
   time: '2026.09.15 09:18'
 }];
+// Seed the shared project store before either side mounts.
+window.DataTagging.seedDemo(initialRecords.filter(r=>['initial_approved','final_approved','final_rejected'].includes(r.stage)),r=>initialApis.find(api=>api.key===r.apiKey)?.project);
 const conversationStatus = {
   collector: {
     pending_cleaning: ['待错别字清洗', 'warning'],
@@ -500,6 +502,11 @@ const initialAccounts = [{
   status: 'active'
 }];
 const initialConversation = ['张主任您好', '你好', '今天主要想跟您交流一下儿童近视防控这块。最近门诊这类患者多吗？', '挺多的，尤其是低龄儿童，现在家长对近视也比较焦虑。', '那您现在临床上对于低龄近视患儿，一般会怎么做干预？', '要看具体情况。首先是用眼习惯、户外活动，必要时也会考虑药物或者 OK 镜。'];
+// Explicitly simulated, verified HCP profiles for the existing conversation fixtures.
+initialRecords.forEach((record,i)=>{
+  record.doctorProfile={verified:true,demo:true,department:'眼科',title:i%2?'主治医师':'主任医师',hospitalLevel:'三级甲等',region:i%2?'上海':'杭州'};
+  record.conversation=initialConversation;
+});
 function Status({
   state
 }) {
@@ -790,6 +797,7 @@ function TenantManagement({
 }
 const removedHcpStorageKey = 'yubei-removed-task-hcps';
 function Workspace() {
+  window.DataTagging.useStore();
   const {
     message
   } = AntApp.useApp();
@@ -950,6 +958,12 @@ function Workspace() {
   const [apiForm] = Form.useForm(),
     [integrationForm] = Form.useForm(),
     [projectSettingForm] = Form.useForm();
+  useEffect(()=>{
+    projects.forEach(project=>window.DataTagging.registerProject(project.key,{
+      connected:apis.some(api=>api.project===project.key&&api.status!=='pending'),
+      records:records.filter(record=>apis.some(api=>api.project===project.key&&api.key===record.apiKey))
+    }));
+  },[projects,apis,records]);
   window.yubeiCollectorTaskStates = ['API-001', 'API-003', 'API-004', 'API-005'].map(apiKey => tasks.find(item => item.apiKey === apiKey)?.state || 'invalid');
   const activeMenu = ['detail', 'form', 'api'].includes(page) ? 'project' : ['flow', 'conversation'].includes(page) ? 'task' : page;
   const labels = {
@@ -1351,7 +1365,8 @@ function Workspace() {
   const removedHcpNames = new Set(people.filter(person => removedHcpKeys.includes(person.key)).map(person => person.name));
   const visibleRecords = records.filter(item => !removedHcpNames.has(item.name));
   const selectedProjectRecords = visibleRecords.filter(record => apis.some(api => api.project === selected.key && api.key === record.apiKey));
-  const interfaceAnalysisRecords = visibleRecords.filter(record => record.apiKey === task.apiKey && ['initial_approved', 'final_approved'].includes(record.stage));
+  const interfaceAnalysisRecords = visibleRecords.filter(record => record.apiKey === task.apiKey && ['initial_approved', 'final_approved', 'final_rejected'].includes(record.stage));
+  const interfaceTagProgress = window.TagCoverage.progress(window.TagCoverage.summarize(interfaceAnalysisRecords,r=>window.DataTagging.get(task.project,r),window.DataTagging.getTaxonomy(task.project)).allTags);
   function removeHcpFromTask(person) {
     const next = [...new Set([...removedHcpKeys, person.key])];
     setRemovedHcpKeys(next);
@@ -1896,6 +1911,14 @@ function Workspace() {
       records:selectedProjectRecords, filter:datasetReviewFilter, onFilter:setDatasetReviewFilter, onView:openRecord,
       resolveApi:record=>apis.find(api=>api.key===record.apiKey)?.name || '—',
       renderPerson:()=>React.createElement(Person,{name:'张三',sub:'医药代表'}), pagination, scopeKey:selected.key
+    });
+    if (page === 'flow') return React.createElement(window.DemandDataViews.Dataset, {
+      readOnly:true, maskNames:false,
+      records:visibleRecords.filter(item=>item.apiKey===task.apiKey&&['initial_approved','final_approved','final_rejected'].includes(item.stage)),
+      filter:datasetReviewFilter, onFilter:setDatasetReviewFilter, onView:openRecord,
+      resolveApi:record=>apis.find(api=>api.key===record.apiKey)?.name || '—',
+      renderPerson:()=>React.createElement(Person,{name:'张三',sub:'医药代表'}), pagination,
+      scopeKey:task.project
     });
     const sourceRecords = page === 'flow' ? visibleRecords.filter(item => item.apiKey === task.apiKey && ['initial_approved', 'final_approved'].includes(item.stage)) : visibleRecords;
     const reviewRecords = sourceRecords.filter(item => getConversationStatus(item, page === 'detail' ? 'demand' : 'collector'));
@@ -2625,30 +2648,17 @@ function Workspace() {
     className: "stat-unit"
   }, "\u4EBA"))), /*#__PURE__*/React.createElement(Card, null, /*#__PURE__*/React.createElement("div", {
     className: "eyebrow"
-  }, "\u91C7\u96C6\u8FDB\u5EA6"), /*#__PURE__*/React.createElement("div", {
+  }, '标签采集完成度'), /*#__PURE__*/React.createElement("div", {
     className: "task-ring-metric"
-  }, /*#__PURE__*/React.createElement(Progress, {
-    type: "circle",
-    percent: Math.min(100, Math.round(task.current / task.target * 100)),
-    size: 64,
-    strokeWidth: 11
-  }), /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("div", {
     className: "task-metric-value"
   }, /*#__PURE__*/React.createElement("div", {
     className: "stat-number"
-  }, task.current, /*#__PURE__*/React.createElement("span", {
-    className: "stat-unit"
-  }, "/ ", task.target, " \u6761"))))), /*#__PURE__*/React.createElement(Card, null, /*#__PURE__*/React.createElement("div", {
+  }, `${interfaceTagProgress.percent}%`)))), /*#__PURE__*/React.createElement(Card, null, /*#__PURE__*/React.createElement("div", {
     className: "eyebrow"
   }, "\u9519\u522B\u5B57\u6E05\u6D17\u7387"), /*#__PURE__*/React.createElement("div", {
     className: "task-ring-metric"
-  }, /*#__PURE__*/React.createElement(Progress, {
-    type: "circle",
-    percent: visibleRecords.length ? Math.round(visibleRecords.filter(r => r.stage !== 'pending_cleaning').length / visibleRecords.length * 100) : 0,
-    size: 64,
-    strokeWidth: 11,
-    strokeColor: "#52c41a"
-  }), /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("div", {
     className: "task-metric-value"
   }, /*#__PURE__*/React.createElement("div", {
     className: "stat-number"
@@ -3656,8 +3666,8 @@ function Workspace() {
     className: "bubble"
   }, text))))), /*#__PURE__*/React.createElement(Drawer, {
     title: "\u6570\u636E\u8BE6\u60C5",
-    width: page === 'detail' ? 'min(980px, 96vw)' : 560,
-    className: page === 'detail' ? 'tag-detail-drawer demand-tag-detail-drawer' : undefined,
+    width: ['detail','flow'].includes(page) ? 'min(980px, 96vw)' : 560,
+    className: ['detail','flow'].includes(page) ? 'tag-detail-drawer demand-tag-detail-drawer' : undefined,
     zIndex: 1200,
     open: !!record,
     destroyOnClose: true,
@@ -3695,9 +3705,9 @@ function Workspace() {
       type: "primary",
       onClick: () => updateRecordStage(record, 'final_approved', '终审通过，该对话已采用')
     }, "\u7EC8\u5BA1\u901A\u8FC7")))
-  }, React.createElement(page === 'detail' && record ? window.DataTagging.Detail : React.Fragment,
-    page === 'detail' && record ? {key:selected.key+':'+record.key,embedded:true,scope:selected.key,record,records:selectedProjectRecords.filter(r=>getConversationStatus(r,'demand'))} : null,
-    React.createElement('div',{className:page === 'detail' ? 'tag-native-body' : undefined}, /*#__PURE__*/React.createElement("div", {
+  }, React.createElement(['detail','flow'].includes(page) && record ? window.DataTagging.Detail : React.Fragment,
+    ['detail','flow'].includes(page) && record ? {key:(page==='detail'?selected.key:task.project)+':'+record.key,embedded:true,readOnly:page==='flow',scope:page==='detail'?selected.key:task.project,record,records:selectedProjectRecords.filter(r=>getConversationStatus(r,'demand'))} : null,
+    React.createElement('div',{className:['detail','flow'].includes(page) ? 'tag-native-body' : undefined}, /*#__PURE__*/React.createElement("div", {
     className: "conversation",
     'data-record-status': record ? getConversationStatus(record, page === 'detail' ? 'demand' : 'collector')?.[0] || '' : '',
     'data-rejection-reason': record?.reason || ''

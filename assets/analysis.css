@@ -2,3 +2,15 @@
 /* Fill status rows from the bottom while preserving each dot's lighting. */
 .analysis-dashboard .signal-dots{transform:scaleY(-1)}
 .analysis-dashboard .signal-dot{transform:scaleY(-1)}
+
+/* Shared coverage hues; soften uncovered dots against the dark panel. */
+.analysis-dashboard .signal-dot.zero,.analysis-dashboard .legend-dot.zero{background:rgba(203,210,221,.24);box-shadow:none}
+.analysis-dashboard .signal-dot.one,.analysis-dashboard .legend-dot.one{background:#6a9bea;box-shadow:0 0 5px #6a9bea55}
+.analysis-dashboard .signal-dot.two,.analysis-dashboard .legend-dot.two{background:#f0ab4f;box-shadow:0 0 5px #f0ab4f55}
+.analysis-dashboard .signal-dot.many,.analysis-dashboard .legend-dot.many{background:#63bb96;box-shadow:0 0 5px #63bb9655}
+.signal-dot{cursor:pointer}
+.signal-legend{flex-wrap:wrap}
+.signal-legend button{display:flex;align-items:center;gap:5px;background:transparent;border:0;padding:3px;color:inherit;font:inherit;cursor:pointer;border-radius:4px}
+.signal-legend button:hover,.signal-legend button[aria-pressed="true"]{color:#fff;background:#ffffff15}
+.signal-legend button:focus-visible,.signal-help:focus-visible{outline:2px solid #6a9bea;outline-offset:3px}
+.signal-help{margin-left:10px;border:1px solid #9db1cf;border-radius:50%;width:17px;height:17px;background:transparent;color:#9db1cf;cursor:help;font-size:11px;padding:0;letter-spacing:0}

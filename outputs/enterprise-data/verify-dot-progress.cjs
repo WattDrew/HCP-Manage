@@ -1,0 +1,27 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
+const root=path.resolve(__dirname,'../..'),values=new Map(),events={};let slots=[],cursor=0;
+const context={window:{addEventListener:(name,fn)=>events[name]=fn},localStorage:{getItem:k=>values.get(k)??null,setItem:(k,v)=>values.set(k,v)},React:{memo:f=>f,createElement:(type,props,...children)=>({type,props:props||{},children}),useState:initial=>{const i=cursor++;if(!(i in slots))slots[i]=typeof initial==='function'?initial():initial;return[slots[i],v=>slots[i]=typeof v==='function'?v(slots[i]):v];},useEffect(){},Fragment:'fragment'},antd:{message:{error:msg=>{throw Error(msg);}}}};
+vm.createContext(context);
+for(const file of ['data-tagging','tag-analysis','demand-data-views'])vm.runInContext(fs.readFileSync(path.join(root,'assets',file+'.js'),'utf8'),context);
+const T=context.window.DataTagging,C=context.window.TagCoverage,D=context.window.DemandDataViews;
+let model=C.progress([0,1,2,5].map(count=>({count})));
+assert.equal(model.percent,50);assert.equal(model.completed,6);assert.equal(model.target,12);assert.equal(model.achieved,1);assert.equal(model.dots.length,1000);
+for(const band of ['zero','one','two','many'])assert.equal(model.dots.filter(b=>b===band).length,250);
+for(let n=0;n<180;n++){model=C.progress(Array.from({length:n},(_,i)=>({count:i%5})));assert.equal(model.dots.length,1000);}
+assert.equal(C.progress([]).percent,0);assert.ok(C.progress([]).dots.every(b=>b==='zero'));
+assert.equal(C.progress(Array.from({length:1000},(_,i)=>({count:i===0?2:3}))).percent,99);
+assert.equal(C.progress([{count:3},{count:9}]).percent,100);
+const records=Array.from({length:4},(_,i)=>({key:'D-'+i,stage:'final_approved'}));
+T.seedDemo(records,()=> 'P-TEST');
+const summarize=()=>C.summarize(records,r=>T.get('P-TEST',r),T.getTaxonomy('P-TEST'));
+assert.deepEqual([...new Set(summarize().allTags.map(t=>C.coverageBand(t.count)))].sort(),['many','one','two','zero']);
+const before=values.get('hcp-annotations-v1');T.seedDemo(records,()=> 'P-TEST');assert.equal(values.get('hcp-annotations-v1'),before);
+const stored=JSON.parse(before),k=JSON.stringify(['P-TEST','D-0']);stored[k]={status:'done',tags:[]};values.set('hcp-annotations-v1',JSON.stringify(stored));events.storage({key:'hcp-annotations-v1'});
+assert.equal(T.get('P-TEST',records[0]).tags.length,0);T.seedDemo(records,()=> 'P-TEST');assert.equal(T.get('P-TEST',records[0]).tags.length,0,'Do not restore removed demo tags');
+const nodes=t=>!t||typeof t!=='object'?[]:[t,...(t.children||[]).flat(Infinity).flatMap(nodes)];
+const render=()=>{cursor=0;return D.ProjectAnalysis({scope:'P-TEST',records});};
+let tree=render();assert.equal(tree.children[0].props.scope,tree.children[1].props.scope);assert.equal(tree.children[0].props.records,tree.children[1].props.records);
+tree.children[0].props.onBandFilter('two');tree=render();assert.equal(tree.children[1].props.bandFilter,'two');
+cursor=0;const analysis=D.Analysis(tree.children[0].props);assert.equal(nodes(analysis).filter(n=>n.props.className?.startsWith('signal-dot ')).length,1000);
+const coverage=C.Component({...tree.children[1].props,bandFilter:'two'});assert.ok(nodes(coverage).filter(n=>n.props.className?.startsWith('tag-map-cell ')).every(n=>n.props.className==='tag-map-cell two'));
+console.log('PASS: capped progress, exact 1,000 dots, rounding, four demo bands, idempotent seeding, cross-tab updates, shared records and band filtering.');

@@ -3,14 +3,16 @@ let open=false;
 const coverage=()=>{},library=()=>{};
 const context={window:{TagCoverage:{Component:coverage},DataTagging:{Library:library}},antd:{},React:{
   Fragment:'fragment',createElement:(type,props,...children)=>({type,props:props||{},children}),
-  useState:()=>[open,value=>{open=value;}]
+  useEffect(){},
+  useState:initial=>initial===false?[open,value=>{open=value;}]:[initial,()=>{}]
 }};
 vm.createContext(context);
 vm.runInContext(fs.readFileSync(path.join(__dirname,'../../assets/demand-data-views.js'),'utf8'),context);
 const records=[{key:'visible',stage:'final_approved'},{key:'pending',stage:'initial_approved'},{key:'hidden',stage:'pending_cleaning'}];
 const render=scope=>context.window.DemandDataViews.ProjectAnalysis({scope,records,current:2,target:10,approved:1});
 let tree=render('P-001');
-assert.equal(tree.children[0].props.current,2);
+assert.equal(tree.children[0].props.scope,'P-001');
+assert.equal(tree.children[0].props.records,tree.children[1].props.records,'Progress and coverage use the same records');
 assert.equal(tree.children[1].type,coverage);
 assert.deepEqual(Array.from(tree.children[1].props.records,r=>r.key),['visible','pending'],'Only demand-visible records enter coverage');
 assert.equal(tree.children[1].props.scope,'P-001');
